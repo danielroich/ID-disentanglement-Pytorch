@@ -1,1 +1,1 @@
-Face-Identity-Disentanglement-via-StyleGan2
+Face-Identity-Disentanglement-via-Latent-Space-Mapping-StyleGan2
