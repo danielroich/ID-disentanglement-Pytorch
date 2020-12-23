@@ -18,3 +18,5 @@ Weights/resnet50_scratch_dag.pth
 Weights/stylegan2-ffhq-config-f.pt
 
 *.pth
+
+*.pt
