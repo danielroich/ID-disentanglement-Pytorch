@@ -153,44 +153,38 @@ class ResFCN256(nn.Module):
         return pos
 
 
-class PRN:
-    '''
-        <Joint 3D Face Reconstruction and Dense Alignment with Position Map Regression Network>
-        This class serves as the wrapper of PRNet.
-    '''
-
-    def __init__(self, model_dir, **kwargs):
-        # resolution of input and output image size.
-        self.resolution_inp = kwargs.get("resolution_inp") or 256
-        self.resolution_op = kwargs.get("resolution_op") or 256
-        self.channel = kwargs.get("channel") or 3
-        self.size = kwargs.get("size") or 16
-
-        # 1) load model.
-        self.pos_predictor = ResFCN256()
+class Encoder_Landmarks(nn.Module):
+    def __init__(self, model_dir):
+        super(Encoder_Landmarks, self).__init__()
+        self.model = ResFCN256()
         state = torch.load(model_dir)
-        self.pos_predictor.load_state_dict(state['prnet'])
-        self.pos_predictor.eval()  # inference stage only.
+        self.model.load_state_dict(state['prnet'])
+        # self.model.eval()  # ?
+        # if torch.cuda.device_count() > 0:
+        #     self.model = self.model.to("cuda")
+
+    def forward(self, data):
+        return self.model(data)
+
+    def backprop(self, input_image, output_image):
+        # model = self.model.train() # ?
+
         if torch.cuda.device_count() > 0:
-            self.pos_predictor = self.pos_predictor.to("cuda")
+            self.model = self.model.to("cuda")
+            input_image = input_image.to("cuda")
+            output_image = output_image.to("cuda")
 
-    def net_forward(self, image):
-        ''' The core of out method: regress the position map of a given image.
-        Args:
-            image: (3, 256, 256) array. value range: 0~1
-        Returns:
-            pos: the 3D position map. (3, 256, 256) array.
-        '''
-        return self.pos_predictor(image)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=0.0001, betas=(0.5, 0.999))
+        optimizer.zero_grad()
 
-    def net_forward_loader(self, data_loader):
-        with torch.no_grad():
-            image, _ = next(iter(data_loader))
-            if torch.cuda.device_count() > 0:
-                image = image.to("cuda")
-            output = self.net_forward(image)
-        return output
+        input_attr_lnd = self.model(input_image)
+        output_lnd = self.model(output_image)
 
+        loss = torch.norm(input_attr_lnd - output_lnd, p=2)
+        print(loss)
+
+        loss.backward()
+        optimizer.step()
 
 def get_data(DATA_DIR, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225], image_size = 256):
     full_dataset = dset.ImageFolder(root=DATA_DIR,
@@ -202,22 +196,6 @@ def get_data(DATA_DIR, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225], im
                                   ]))
     return full_dataset
 
-def make_loaders(dataset, batch_size):
-    test_loader = torch.utils.data.DataLoader(dataset=dataset,
-                                              batch_size=batch_size)
-
-    return test_loader
-
-
 if __name__ == "__main__":
-    prn = PRN(model_dir = 'Weights/latest.pth')
-
-    DATA_DIR = r'Datasets/real_small/'  # looking in sub folder
-    batch_size = 16
-
-    data_folder = get_data(DATA_DIR)
-    data_loader = make_loaders(data_folder, batch_size)
-    output = prn.net_forward_loader(data_loader)
-
-    print(output)
-    print(output.shape)
+    model_dir = r'/content/drive/MyDrive/Colab Notebooks/workshop/Weights/latest.pth'
+    prn = Encoder_Landmarks(model_dir)
