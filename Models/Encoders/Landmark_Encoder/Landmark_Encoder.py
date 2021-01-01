@@ -1,8 +1,8 @@
 import torch
 import cv2
 
-from common.utils import BBox, drawLandmark_multiple
-from models.mobilefacenet import MobileFaceNet
+from utils import BBox, drawLandmark_multiple
+from mobilefacenet import MobileFaceNet
 from Retinaface import Retinaface
 
 
