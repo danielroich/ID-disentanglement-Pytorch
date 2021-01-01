@@ -11,7 +11,7 @@ class Encoder_Landmarks(torch.nn.Module):
         super(Encoder_Landmarks, self).__init__()
         self.model = MobileFaceNet([112, 112], 136)
 
-        checkpoint = torch.load('Models/Encoders/Landmark_Encoder/checkpoint/mobilefacenet_model_best.pth.tar')
+        checkpoint = torch.load('weights/mobilefacenet_model_best.pth.tar')
         self.model.load_state_dict(checkpoint['state_dict'])
 
         self.model = self.model.eval()
