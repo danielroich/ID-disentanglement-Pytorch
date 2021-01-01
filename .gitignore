@@ -20,3 +20,4 @@ Weights/stylegan2-ffhq-config-f.pt
 *.pth
 
 *.pt
+/Weights/

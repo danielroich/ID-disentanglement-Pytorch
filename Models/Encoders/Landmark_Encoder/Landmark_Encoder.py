@@ -7,16 +7,18 @@ from .Retinaface import Retinaface
 
 
 class Encoder_Landmarks(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, model_dir = 'Weights/mobilefacenet_model_best.pth.tar', retinaface_model_dir = 'Weights/mobilenet0.25_Final.pth'):
         super(Encoder_Landmarks, self).__init__()
         self.model = MobileFaceNet([112, 112], 136)
 
-        checkpoint = torch.load('weights/mobilefacenet_model_best.pth.tar')
+        checkpoint = torch.load(model_dir)
         self.model.load_state_dict(checkpoint['state_dict'])
 
         self.model = self.model.eval()
         # if torch.cuda.device_count() > 0:
         #     self.model = self.model.to("cuda")
+
+        self.retinaface_model_dir = retinaface_model_dir
 
     def forward(self, data):
         return self.model(data)
@@ -29,7 +31,7 @@ class Encoder_Landmarks(torch.nn.Module):
         img = cv2.imread(img_path)
 
         # face detector
-        retinaface = Retinaface.Retinaface()
+        retinaface = Retinaface.Retinaface(trained_model = self.retinaface_model_dir)
         faces = retinaface(img)
         if len(faces) == 0:
             print('NO face is detected!')

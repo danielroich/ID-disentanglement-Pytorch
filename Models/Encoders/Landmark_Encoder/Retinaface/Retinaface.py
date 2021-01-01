@@ -14,7 +14,6 @@ import time
 
 
 # some global configs
-trained_model='weights/mobilenet0.25_Final.pth'
 network='mobile0.25'
 confidence_threshold = 0.05
 top_k = 5000
@@ -61,7 +60,7 @@ def load_model(model, pretrained_path, load_to_cpu):
 
 
 class Retinaface:
-    def __init__(self, timer_flag=False):
+    def __init__(self, timer_flag=False, trained_model = 'Weights/mobilenet0.25_Final.pth'):
         torch.set_grad_enabled(False)
         '''
         if network == "mobile0.25":
