@@ -1,9 +1,9 @@
 import torch
 import cv2
 
-from utils import BBox, drawLandmark_multiple
-from mobilefacenet import MobileFaceNet
-from Retinaface import Retinaface
+from .utils import BBox, drawLandmark_multiple
+from .mobilefacenet import MobileFaceNet
+from .Retinaface import Retinaface
 
 
 class Encoder_Landmarks(torch.nn.Module):
