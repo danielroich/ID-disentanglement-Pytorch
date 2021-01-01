@@ -81,7 +81,6 @@ def get_cropped_and_box(img, face, out_size = 112):
     edy = max(0, y2 - height)
     x2 = min(width, x2)
     y2 = min(height, y2)
-    print(x1, x2, y1, y2)
     new_bbox = list(map(int, [x1, x2, y1, y2]))
     new_bbox = BBox(new_bbox)
     cropped=img[new_bbox.top:new_bbox.bottom,new_bbox.left:new_bbox.right]
