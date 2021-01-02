@@ -48,16 +48,16 @@ class Encoder_Landmarks(torch.nn.Module):
             test_face = test_face.transpose((2, 0, 1))
             test_face = test_face.reshape((1,) + test_face.shape)
             input = torch.from_numpy(test_face).float()
-            input = torch.autograd.Variable(input)
+            #input = torch.autograd.Variable(input)
 
             self.model = self.model.eval()
-            output, _ =  self.model(input)
+            with torch.no_grad():
+                output, _ =  self.model(input)
             self.model = self.model.train()
 
             landmark = output.cpu().data.numpy()
             landmark = landmark.reshape(-1, 2)
-            landmark = new_bbox.reprojectLandmark(landmark
-                                                  )
+            landmark = new_bbox.reprojectLandmark(landmark)
             img_with_lnd = drawLandmark_multiple(img, new_bbox, landmark)
         return landmark, img_with_lnd
 
@@ -84,7 +84,7 @@ class Encoder_Landmarks(torch.nn.Module):
             test_face = cropped_face.copy()
             test_face = test_face / 255.0
             test_face = test_face.transpose((2, 0, 1))
-            test_face = test_face.reshape((1,) + test_face.shape)
+            test_face = test_face.reshape(test_face.shape)
             input = torch.from_numpy(test_face).float()
             input = torch.autograd.Variable(input)
 
