@@ -14,7 +14,7 @@ class Encoder_Landmarks(torch.nn.Module):
         checkpoint = torch.load(model_dir)
         self.model.load_state_dict(checkpoint['state_dict'])
 
-        self.model = self.model.eval()
+        self.model = self.model.train()
         # if torch.cuda.device_count() > 0:
         #     self.model = self.model.to("cuda")
 
@@ -27,7 +27,7 @@ class Encoder_Landmarks(torch.nn.Module):
         loss = torch.norm(input_attr_lnd - output_lnd, p=2)
         return loss
 
-    def get_landmarks(self, img_path):
+    def get_single_img_landmarks(self, img_path):
         img = cv2.imread(img_path)
 
         # face detector
@@ -50,13 +50,64 @@ class Encoder_Landmarks(torch.nn.Module):
             input = torch.from_numpy(test_face).float()
             input = torch.autograd.Variable(input)
 
-            output =  self.model(input)
-            landmark = output[0].cpu().data.numpy()
+            self.model = self.model.eval()
+            output, _ =  self.model(input)
+            self.model = self.model.train()
 
+            landmark = output.cpu().data.numpy()
             landmark = landmark.reshape(-1, 2)
-            landmark = new_bbox.reprojectLandmark(landmark)
+            landmark = new_bbox.reprojectLandmark(landmark
+                                                  )
             img_with_lnd = drawLandmark_multiple(img, new_bbox, landmark)
         return landmark, img_with_lnd
+
+    # return inputs (batch_size, 3, 112, 112), BBox list in length batch_size
+    def get_inputs_and_boxes(self, imgs, out_size=112):
+        inputs = torch.empty(imgs.shape[0], imgs.shape[3], out_size, out_size)
+        boxes = []
+        for i, img in enumerate(imgs):
+
+            retinaface = Retinaface.Retinaface(trained_model=self.retinaface_model_dir)
+            faces = retinaface(img)
+            if len(faces) == 0 or len(faces) > 1:
+                print('NO faces or more than one face is detected!')
+                return
+
+            face = faces[0]
+
+            # get face img and box
+            cropped_face, new_bbox = get_cropped_and_box(img, face)
+            if cropped_face.shape[0] <= 0 or cropped_face.shape[1] <= 0:
+                print('Error in cropped face!')
+                return
+
+            test_face = cropped_face.copy()
+            test_face = test_face / 255.0
+            test_face = test_face.transpose((2, 0, 1))
+            test_face = test_face.reshape((1,) + test_face.shape)
+            input = torch.from_numpy(test_face).float()
+            input = torch.autograd.Variable(input)
+
+            inputs[i] = input
+            boxes.append(new_bbox)
+        return inputs, boxes
+
+    # assume imgs in shape (batch_size, 256, 256, 3)
+    def forward_batch(self, imgs):
+        # get input and face boxes
+        inputs, boxes = self.get_inputs_and_boxes(imgs)
+
+        # pass our model as a batch
+        outputs, _ = self.model(inputs)
+
+        # landmark fix
+        landmark = outputs.cpu().data.numpy()
+        batch_size = imgs.shape[0]
+        landmark = landmark.reshape(batch_size, -1, 2)  # (batch_size, 68, 2)
+        for inx in range(batch_size):
+            landmark[inx] = boxes[inx].reprojectLandmark(landmark[inx])
+
+        return landmark
 
 def get_cropped_and_box(img, face, out_size = 112):
     height, width, _ = img.shape
