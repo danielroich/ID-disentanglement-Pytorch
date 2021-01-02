@@ -89,7 +89,7 @@ class Encoder_Landmarks(torch.nn.Module):
             input = torch.autograd.Variable(input)
 
             inputs[i] = input
-            boxes.append(new_bbox)
+            boxes.append(new_bbox) # append to end of list
         return inputs, boxes
 
     # assume imgs in shape (batch_size, 256, 256, 3)
@@ -103,7 +103,7 @@ class Encoder_Landmarks(torch.nn.Module):
         # landmark fix
         landmark = outputs.cpu().data.numpy()
         batch_size = imgs.shape[0]
-        landmark = landmark.reshape(batch_size, -1, 2)  # (batch_size, 68, 2)
+        landmark = landmark.reshape(batch_size, 68, 2)
         for inx in range(batch_size):
             landmark[inx] = boxes[inx].reprojectLandmark(landmark[inx])
 
