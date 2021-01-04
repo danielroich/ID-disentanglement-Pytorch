@@ -63,7 +63,7 @@ class Encoder_Landmarks(torch.nn.Module):
 
     # return inputs (batch_size, 3, 112, 112), BBox list in length batch_size
     def get_inputs_and_boxes(self, imgs, out_size=112):
-        inputs = torch.empty(imgs.shape[0], imgs.shape[3], out_size, out_size)
+        inputs = torch.zeros(imgs.shape[0], imgs.shape[3], out_size, out_size, requires_grad=True)
         boxes = []
         for i, img in enumerate(imgs):
 
@@ -86,7 +86,7 @@ class Encoder_Landmarks(torch.nn.Module):
             test_face = test_face.transpose((2, 0, 1))
             test_face = test_face.reshape(test_face.shape)
             input = torch.from_numpy(test_face).float()
-            input = torch.autograd.Variable(input)
+            input = torch.autograd.Variable(input, requires_grad=True)
 
             inputs[i] = input
             boxes.append(new_bbox) # append to end of list
@@ -94,21 +94,31 @@ class Encoder_Landmarks(torch.nn.Module):
 
     # assume imgs in shape (batch_size, 256, 256, 3)
     def forward_batch(self, imgs):
-        # get input and face boxes
+        # preprocess - get input and face boxes
         inputs, boxes = self.get_inputs_and_boxes(imgs)
-
         # pass our model as a batch
         outputs, _ = self.model(inputs)
+        # postprocess
+        landmarks = reproject_landmarks(boxes, outputs)
+        return outputs, landmarks
 
-        # landmark fix
-        landmark = outputs.cpu().data.numpy()
-        batch_size = imgs.shape[0]
-        landmark = landmark.reshape(batch_size, 68, 2)
-        for inx in range(batch_size):
-            landmark[inx] = boxes[inx].reprojectLandmark(landmark[inx])
+# postprocess
+def reproject_landmarks(boxes, landmarks):
+  landmarks_ = torch.clone(landmarks)
+  batch_size = landmarks_.shape[0]
+  landmarks_ = torch.reshape(landmarks_,(batch_size, 68 ,2))
+  for i in range(batch_size):
+    landmarks_[i,:,0] = landmarks_[i,:,0] * boxes[i].w +  boxes[i].x
+    landmarks_[i,:,1] = landmarks_[i,:,1] * boxes[i].h +  boxes[i].y
+  return landmarks_
 
-        return landmark
+def draw_only_landmarks(img, landmarks):
+    img_ = img.copy()
+    for x, y in landmarks:
+        cv2.circle(img_, (int(x), int(y)), 3, (0,255,0), -1)
+    return img_
 
+# part of preprocess
 def get_cropped_and_box(img, face, out_size = 112):
     height, width, _ = img.shape
     x1=face[0]
