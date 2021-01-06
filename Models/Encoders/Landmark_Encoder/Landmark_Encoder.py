@@ -42,7 +42,7 @@ class Encoder_Landmarks(torch.nn.Module):
     # preprocess
     # return inputs (batch_size, 3, 112, 112), BBox list in length batch_size
     def get_inputs_and_boxes(self, imgs, out_size=112):
-        inputs = torch.zeros(imgs.shape[0], imgs.shape[3], out_size, out_size, requires_grad=True)
+        inputs = torch.zeros(imgs.shape[0], imgs.shape[3], out_size, out_size)
         boxes = []
         for i, img in enumerate(imgs):
 
@@ -65,7 +65,7 @@ class Encoder_Landmarks(torch.nn.Module):
             test_face = test_face.transpose((2, 0, 1))
             test_face = test_face.reshape(test_face.shape)
             input = torch.from_numpy(test_face).float()
-            input = torch.autograd.Variable(input, requires_grad=True)
+            #input = torch.autograd.Variable(input, requires_grad=True)
 
             inputs[i] = input
             boxes.append(new_bbox)  # append to end of list

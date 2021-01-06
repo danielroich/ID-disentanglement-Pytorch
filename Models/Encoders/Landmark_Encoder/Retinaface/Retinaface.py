@@ -61,7 +61,7 @@ def load_model(model, pretrained_path, load_to_cpu):
 
 class Retinaface:
     def __init__(self, timer_flag=False, trained_model = 'Weights/mobilenet0.25_Final.pth'):
-        torch.set_grad_enabled(False)
+        #torch.set_grad_enabled(True)
         '''
         if network == "mobile0.25":
             cfg = cfg_mnet
