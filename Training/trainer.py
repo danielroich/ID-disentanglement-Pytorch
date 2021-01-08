@@ -2,7 +2,7 @@ from Losses.AdversarialLoss import calc_Dw_loss
 from Models.Encoders.ID_Encoder import resnet50_scratch_dag
 from Models.Encoders.Attribute_Encoder import Encoder_Attribute
 from Models.Discrimanator import Discriminator
-from Models.MLP import MLPModel
+from Models.LatentMapper import MLPModel
 import torch
 import torch.utils.data
 import torchvision.datasets as dset
