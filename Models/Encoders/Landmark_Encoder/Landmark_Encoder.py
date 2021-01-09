@@ -17,7 +17,7 @@ class Encoder_Landmarks(torch.nn.Module):
 
         self.retinaface_model_dir = retinaface_model_dir
 
-        # self.model = self.model.train()
+        self.model = self.model.eval()
         # if torch.cuda.device_count() > 0:
         #     self.model = self.model.to("cuda")
 
