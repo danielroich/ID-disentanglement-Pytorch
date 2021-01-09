@@ -33,7 +33,7 @@ class Encoder_Landmarks(torch.nn.Module):
         # postprocess
         landmarks = self.reproject_landmarks(boxes, outputs)
 
-        return outputs, landmarks
+        return outputs, landmarks[:, 17:, :]
 
     def loss(self, input_attr_lnd, output_lnd):
         loss = torch.norm(input_attr_lnd - output_lnd, p=2)
