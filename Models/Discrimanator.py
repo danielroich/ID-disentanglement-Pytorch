@@ -16,7 +16,7 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(negative_slope=slope),
             # nn.BatchNorm1d(n_hid // 4, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
             nn.Linear(n_hid // 4, 1),
-            #nn.Sigmoid()
+            nn.Sigmoid()
         )
         for m in self.model:
             if isinstance(m, nn.Linear):
