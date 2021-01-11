@@ -20,7 +20,7 @@ class Discriminator(nn.Module):
         )
         for m in self.model:
             if isinstance(m, nn.Linear):
-                nn.init.kaiming_normal_(m.weight)
+                nn.init.kaiming_normal_(m.weight, a= slope)
                 nn.init.constant_(m.bias, 0)
 
     def forward(self, input_data):

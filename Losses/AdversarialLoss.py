@@ -18,7 +18,7 @@ def calc_Dw_loss(probs: torch.Tensor, label: int, device : str, inputs : torch.T
     criterion = nn.BCELoss()
 
     # TODO: Should call mean in the end?
-    adversarial_loss = criterion(probs, labels).mean()
+    adversarial_loss = criterion(probs, labels)
 
     return  adversarial_loss + grad_penalty
 
