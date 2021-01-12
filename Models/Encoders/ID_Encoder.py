@@ -364,7 +364,7 @@ class Resnet50_scratch_dag(nn.Module):
         pool5_7x7_s1 = self.pool5_7x7_s1(conv5_3x)
         classifier_preflatten = self.classifier(pool5_7x7_s1)
         classifier = classifier_preflatten.view(classifier_preflatten.size(0), -1)
-        return classifier, pool5_7x7_s1
+        return pool5_7x7_s1
 
 
 def resnet50_scratch_dag(weights_path=None, **kwargs):
