@@ -8,7 +8,7 @@ import torchvision.transforms as transforms
 class Encoder_Attribute(nn.Module):
     def __init__(self):
         super(Encoder_Attribute, self).__init__()
-        self.model = torch.hub.load('pytorch/vision:v0.6.0', 'inception_v3', pretrained=True)
+        self.model = torch.hub.load('pytorch/vision:v0.6.0', 'inception_v3', pretrained=True, aux_logits=False)
         self.model.fc = Identity()
 
     def forward(self, data):
