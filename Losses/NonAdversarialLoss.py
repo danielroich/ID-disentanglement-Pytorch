@@ -1,23 +1,16 @@
-from pytorch_msssim import MS_SSIM
+from pytorch_msssim import ms_ssim
 import numpy as np
 import torch
 
-def reconstruction_loss(Iattr, Iout,Iid, a):
-
-    img_attr = torch.from_numpy(np.rollaxis(Iattr, 2)).float().unsqueeze(0)/255.0
-    if torch.cuda.is_available():
-      img_attr = img_attr.cuda()
-    img_out = torch.from_numpy(np.rollaxis(Iout, 2)).float().unsqueeze(0)/255.0
-    if torch.cuda.is_available():
-      img_out = img_out.cuda()
-    # img_attr, img_out: (N,3,H,W) a batch of non-negative RGB images (0~255)
-    ms_ssim_val = ms_ssim( img_attr, img_out, data_range=255, size_average=False )
-    norm1=np.linalg.norm(np.asarray(Iattr)-np.asarray(Iout))
-    return a*(1-ms_ssim_val)+(1-a)*norm1
+def rec_loss(attr_images, generated_images, a):
+  ms_ssim_loss = 1 - ms_ssim( attr_images, generated_images, data_range=1, size_average=True )
+  l1_loss = torch.nn.L1Loss(reduction = 'mean')
+  l1_loss_value = l1_loss(attr_images, generated_images)
+  return a * ms_ssim_loss + (1-a) * l1_loss_value
 
 
 def id_loss(encoded_input_image, encoded_generated_image):
-    loss = torch.nn.L1Loss()
+    loss = torch.nn.L1Loss(reduction = 'mean')
     return loss(encoded_input_image, encoded_generated_image)
 
 def landmark_loss(input_attr_lnd, output_lnd):
