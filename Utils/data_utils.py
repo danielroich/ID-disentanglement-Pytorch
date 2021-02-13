@@ -5,7 +5,7 @@ import numpy as np
 from torch.utils.data import Dataset
 
 
-def plot__single_w_image(w, generator):
+def plot_single_w_image(w, generator):
     w = w.unsqueeze(0).cuda()
     sample, latents = generator(
         [w], input_is_latent=True, return_latents=True
