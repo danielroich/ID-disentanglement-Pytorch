@@ -35,7 +35,7 @@ class Trainer:
         # 1.1 Train on Real Data
         prediction_real = self.discriminator(real_w).view(-1)
         # Calculate error and backpropagate
-        error_real = calc_Dw_loss(prediction_real, 1, "cuda", real_w, self.config['R1Param'], False)
+        error_real = calc_Dw_loss(prediction_real, 1, real_w, self.config['R1Param'], False)
         error_real.backward()
 
         generated_w = generated_w.clone().detach()
