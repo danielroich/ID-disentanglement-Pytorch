@@ -99,7 +99,6 @@ class Trainer:
         # _, real_landmarks = self.landmark_encoder(original_attr_images)
         # landmark_loss_val = self.config['lambdaLND'] * landmark_loss(generated_landmarks, real_landmarks)
 
-        # if idx % config['IdDiffersAttrTrainRatio'] != 0:
         if are_the_same_images:
             rec_loss_val = self.config['lambdaREC'] * rec_loss(original_attr_images, generated_images, self.config['a'])
         else:
