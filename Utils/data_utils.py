@@ -63,3 +63,13 @@ def make_concat_loaders(batch_size, datasets):
                                                batch_size=batch_size, shuffle=True)
 
     return train_loader
+
+def cycle_images_to_create_diff_order(images):
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    batch_size = len(images)
+    different_images = torch.empty_like(images, device=device)
+    different_images[0] = images[batch_size - 1]
+    different_images[1:] = images[:batch_size - 1]
+    # attr_vec = E_att(attr_transform(different_attr_images))
+    # different_attr_vec = torch.squeeze(attr_vec)
