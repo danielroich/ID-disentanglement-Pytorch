@@ -4,92 +4,115 @@ import torch
 from Losses.NonAdversarialLoss import id_loss, landmark_loss, rec_loss
 
 
-def train_discriminator(optimizer, real_w, generated_w, discriminator, ws, R1Param):
-    optimizer.zero_grad()
+class Trainer:
 
-    # 1.1 Train on Real Data
-    prediction_real = discriminator(real_w).view(-1)
-    # Calculate error and backpropagate
-    error_real = calc_Dw_loss(prediction_real, 1, "cuda", ws, R1Param, False)
-    error_real.backward()
+    def __init__(self, config,
+                 discriminator_optimizer: torch.optim.Optimizer,
+                 mapper_optimizer: torch.optim.Optimizer,
+                 discriminator,
+                 generator,
+                 id_transform,
+                 attr_transform,
+                 id_encoder,
+                 attr_encoder,
+                 landmark_encoder):
 
-    generated_w = generated_w.clone().detach()
-    # 1.2 Train on Fake Data
-    prediction_fake = discriminator(generated_w).view(-1)
-    # Calculate error and backpropagate
-    error_fake = calc_Dw_loss(prediction_fake, 0, generated_w, R1Param, False)
+        self.config = config
+        self.optimizer_D = discriminator_optimizer
+        self.optimizer_M = mapper_optimizer
+        self.discriminator = discriminator
+        self.discriminator = discriminator
+        self.generator = generator
+        self.id_transform = id_transform
+        self.attr_transform = attr_transform
+        self.id_encoder = id_encoder
+        self.attr_encoder = attr_encoder
+        self.landmark_encoder = landmark_encoder
 
-    error_fake.backward()
+    def train_discriminator(self, real_w, generated_w):
+        self.optimizer_D.zero_grad()
 
-    # 1.3 Update weights with gradients
-    optimizer.step()
+        # 1.1 Train on Real Data
+        prediction_real = self.discriminator(real_w).view(-1)
+        # Calculate error and backpropagate
+        error_real = calc_Dw_loss(prediction_real, 1, "cuda", real_w, self.config['R1Param'], False)
+        error_real.backward()
 
-    # Return error and predictions for real and fake inputs
-    # return error_real + error_fake, prediction_real, prediction_fake
-    return error_real, prediction_real, error_fake, prediction_fake
+        generated_w = generated_w.clone().detach()
+        # 1.2 Train on Fake Data
+        prediction_fake = self.discriminator(generated_w).view(-1)
+        # Calculate error and backpropagate
+        error_fake = calc_Dw_loss(prediction_fake, 0, generated_w, self.config['R1Param'], False)
 
+        error_fake.backward()
 
-def train_mapper(optimizer, generated_w, discriminator, R1Param):
-    optimizer.zero_grad()
-    prediction = discriminator(generated_w).view(-1)
-    # Calculate error and backpropagate
-    error = calc_Dw_loss(prediction, 1, generated_w, R1Param, False)
-    error.backward()
-    # Update weights with gradients
-    optimizer.step()
-    # Return error
-    return error, prediction
+        # 1.3 Update weights with gradients
+        self.optimizer_D.step()
 
+        # Return error and predictions for real and fake inputs
+        # return error_real + error_fake, prediction_real, prediction_fake
+        return error_real, prediction_real, error_fake, prediction_fake
 
-def discriminator_train_step(optimizerD, optimizerMLP, ws, fake_data, print_results=True):
-    error_real, prediction_real, error_fake, prediction_fake = train_discriminator(optimizerD, ws, fake_data)
-    g_error, g_pred = train_mapper(optimizerMLP, fake_data)
+    def train_mapper(self, generated_w):
+        self.optimizer_M.zero_grad()
+        prediction = self.discriminator(generated_w).view(-1)
+        # Calculate error and backpropagate
+        error = calc_Dw_loss(prediction, 1, generated_w, self.config['R1Param'], False)
+        error.backward()
+        # Update weights with gradients
+        self.optimizer_M.step()
+        # Return error
+        return error, prediction
 
-    if print_results:
-        prediction_fake = torch.mean(prediction_fake)
-        prediction_real = torch.mean(prediction_real)
-        g_pred = torch.mean(g_pred)
-        print(
-            f"\n error_real: {error_real}, error_fake: {error_fake} \n prediction_real: {prediction_real}, prediction_fake: {prediction_fake}")
-        print(f"\n g_error: {g_error}, g_pred: {g_pred}")
+    def discriminator_train_step(self, real_w, fake_data, print_results=True):
+        error_real, prediction_real, error_fake, prediction_fake = self.train_discriminator(real_w, fake_data)
+        g_error, g_pred = self.train_mapper(fake_data)
 
-        return error_real, error_fake, prediction_real, prediction_fake, g_error, g_pred
+        if print_results:
+            prediction_fake = torch.mean(prediction_fake)
+            prediction_real = torch.mean(prediction_real)
+            g_pred = torch.mean(g_pred)
+            print(
+                f"\n error_real: {error_real}, error_fake: {error_fake} \n prediction_real: {prediction_real}, prediction_fake: {prediction_fake}")
+            print(f"\n g_error: {g_error}, g_pred: {g_pred}")
 
+            return error_real, error_fake, prediction_real, prediction_fake, g_error, g_pred
 
-def id_and_attr_train_step(generator,optimizerMLP, fake_data, id_transform,
-                           attr_transform, config, E_id, E_lnd, id_vec, attr_images,
-                           are_the_same_images=True, print_results=True):
-    optimizerMLP.zero_grad()
+    def id_and_attr_train_step(self, fake_data,
+                               original_id_vec, original_attr_images,
+                               are_the_same_images=True, print_results=True):
 
-    generated_images, _ = generator(
-        [fake_data], input_is_latent=True, return_latents=False
-    )
-    generated_images = (generated_images + 1) / 2
+        self.optimizer_M.zero_grad()
 
-    id_generated_images = id_transform(generated_images)
-    attr_generated_images = attr_transform(generated_images)
+        generated_images, _ = self.generator(
+            [fake_data], input_is_latent=True, return_latents=False
+        )
+        generated_images = (generated_images + 1) / 2
 
-    pred_id_embedding = torch.squeeze(E_id(id_generated_images))
-    id_loss_val = config['lambdaID'] * id_loss(id_vec, pred_id_embedding)
+        id_generated_images = self.id_transform(generated_images)
+        attr_generated_images = self.attr_transform(generated_images)
 
-    _, generated_landmarks = E_lnd(attr_generated_images.cpu().numpy())
-    _, real_landmarks = E_lnd(attr_images)
-    landmark_loss_val = config['lambdaLND'] * landmark_loss(generated_landmarks, real_landmarks)
+        pred_id_embedding = torch.squeeze(self.id_encoder(id_generated_images))
+        id_loss_val = self.config['lambdaID'] * id_loss(original_id_vec, pred_id_embedding)
 
-    # if idx % config['IdDiffersAttrTrainRatio'] != 0:
-    if are_the_same_images:
-        rec_loss_val = config['lambdaREC'] * rec_loss(attr_images, generated_images, config['a'])
-    else:
-        rec_loss_val = 0
+        _, generated_landmarks = self.landmark_encoder(attr_generated_images.cpu().numpy())
+        _, real_landmarks = self.landmark_encoder(original_attr_images)
+        landmark_loss_val = self.config['lambdaLND'] * landmark_loss(generated_landmarks, real_landmarks)
 
-    total_error = rec_loss_val + id_loss_val + landmark_loss_val
+        # if idx % config['IdDiffersAttrTrainRatio'] != 0:
+        if are_the_same_images:
+            rec_loss_val = self.config['lambdaREC'] * rec_loss(original_attr_images, generated_images, self.config['a'])
+        else:
+            rec_loss_val = 0
 
-    total_error.backward()
-    optimizerMLP.step()
+        total_error = rec_loss_val + id_loss_val + landmark_loss_val
 
-    if print_results:
-        print(f"id_loss_val: {id_loss_val}")
-        print(f"landmark_loss: {landmark_loss}")
-        print(f"rec_loss: {rec_loss_val}")
+        total_error.backward()
+        self.optimizer_M.step()
 
-    return id_loss_val, landmark_loss_val, rec_loss_val
+        if print_results:
+            print(f"id_loss_val: {id_loss_val}")
+            print(f"landmark_loss: {landmark_loss}")
+            print(f"rec_loss: {rec_loss_val}")
+
+        return id_loss_val, landmark_loss_val, rec_loss_val
