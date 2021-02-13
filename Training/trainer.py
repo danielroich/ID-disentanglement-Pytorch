@@ -38,11 +38,11 @@ class Trainer:
         error_real = calc_Dw_loss(prediction_real, 1, real_w, self.config['R1Param'], False)
         error_real.backward()
 
-        generated_w = generated_w.clone().detach()
+        cloned_generated_w = generated_w.clone().detach()
         # 1.2 Train on Fake Data
-        prediction_fake = self.discriminator(generated_w).view(-1)
+        prediction_fake = self.discriminator(cloned_generated_w).view(-1)
         # Calculate error and backpropagate
-        error_fake = calc_Dw_loss(prediction_fake, 0, generated_w, self.config['R1Param'], False)
+        error_fake = calc_Dw_loss(prediction_fake, 0, cloned_generated_w, self.config['R1Param'], False)
 
         error_fake.backward()
 
@@ -78,7 +78,7 @@ class Trainer:
 
             return error_real, error_fake, prediction_real, prediction_fake, g_error, g_pred
 
-    def id_and_attr_train_step(self, fake_data,
+    def id_and_rec_train_step(self, fake_data,
                                original_id_vec, original_attr_images,
                                are_the_same_images=True, print_results=True):
 
@@ -90,14 +90,14 @@ class Trainer:
         generated_images = (generated_images + 1) / 2
 
         id_generated_images = self.id_transform(generated_images)
-        attr_generated_images = self.attr_transform(generated_images)
+        #attr_generated_images = self.attr_transform(generated_images)
 
         pred_id_embedding = torch.squeeze(self.id_encoder(id_generated_images))
         id_loss_val = self.config['lambdaID'] * id_loss(original_id_vec, pred_id_embedding)
-
-        _, generated_landmarks = self.landmark_encoder(attr_generated_images.cpu().numpy())
-        _, real_landmarks = self.landmark_encoder(original_attr_images)
-        landmark_loss_val = self.config['lambdaLND'] * landmark_loss(generated_landmarks, real_landmarks)
+        #
+        # _, generated_landmarks = self.landmark_encoder(attr_generated_images.cpu().detach().numpy())
+        # _, real_landmarks = self.landmark_encoder(original_attr_images)
+        # landmark_loss_val = self.config['lambdaLND'] * landmark_loss(generated_landmarks, real_landmarks)
 
         # if idx % config['IdDiffersAttrTrainRatio'] != 0:
         if are_the_same_images:
@@ -105,14 +105,13 @@ class Trainer:
         else:
             rec_loss_val = 0
 
-        total_error = rec_loss_val + id_loss_val + landmark_loss_val
+        total_error = rec_loss_val + id_loss_val
 
         total_error.backward()
         self.optimizer_M.step()
 
         if print_results:
             print(f"id_loss_val: {id_loss_val}")
-            print(f"landmark_loss: {landmark_loss}")
             print(f"rec_loss: {rec_loss_val}")
 
-        return id_loss_val, landmark_loss_val, rec_loss_val
+        return id_loss_val, rec_loss_val
