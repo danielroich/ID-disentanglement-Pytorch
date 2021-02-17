@@ -5,8 +5,8 @@ import numpy as np
 from torch.utils.data import Dataset
 
 
-def plot_single_w_image(w, generator):
-    w = w.unsqueeze(0).cuda()
+def plot_single_w_image(w, generator, device):
+    w = w.unsqueeze(0).to(device)
     sample, latents = generator(
         [w], input_is_latent=True, return_latents=True
     )
@@ -65,8 +65,7 @@ def make_concat_loaders(batch_size, datasets):
     return train_loader
 
 
-def cycle_images_to_create_diff_order(images):
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+def cycle_images_to_create_diff_order(images, device):
     batch_size = len(images)
     different_images = torch.empty_like(images, device=device)
     different_images[0] = images[batch_size - 1]
