@@ -3,9 +3,8 @@ import torch.nn as nn
 from torch.autograd import grad
 
 
-def calc_Dw_loss(probs: torch.Tensor, label: int, inputs: torch.Tensor, r1_gamma: int, add_regulrization: bool,
-                 device: torch.device):
-
+def calc_Dw_loss(probs: torch.Tensor, label: int, inputs: torch.Tensor, r1_gamma: int, add_regulrization: bool):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     labels = torch.full((probs.size(0),), label, dtype=torch.float, device=device)
     grad_penalty = 0
 
