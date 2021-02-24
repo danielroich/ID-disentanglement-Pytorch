@@ -41,8 +41,10 @@ class WDataSet(Dataset):
         self.root_dir = root_dir
 
     def __len__(self):
-        ## TODO: Change
-        return 6999
+        path, dirs, files = next(os.walk("/usr/lib"))
+        return len(files)
+        # ## TODO: Change
+        # return 6999
 
     def __getitem__(self, idx):
         return get_w_by_index(idx, self.root_dir)
