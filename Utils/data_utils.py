@@ -17,6 +17,8 @@ def plot_single_w_image(w, generator):
     plt.imshow(new_image)
     plt.show()
 
+    return new_image
+
 
 def get_w_by_index(idx, root_dir):
     if torch.is_tensor(idx):
