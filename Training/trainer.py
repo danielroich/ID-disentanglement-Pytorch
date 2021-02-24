@@ -78,7 +78,7 @@ class Trainer:
                 f"\n error_real: {error_real}, error_fake: {error_fake} \n prediction_real: {prediction_real}, prediction_fake: {prediction_fake}")
             print(f"\n g_error: {g_error}, g_pred: {g_pred}")
 
-            return error_real, error_fake, prediction_real, prediction_fake, g_error, g_pred
+        return error_real, error_fake, prediction_real, prediction_fake, g_error, g_pred
 
     def non_adversarial_train_step(self, fake_data,
                                    original_id_vec, original_attr_images,
