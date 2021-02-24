@@ -41,7 +41,7 @@ class WDataSet(Dataset):
         self.root_dir = root_dir
 
     def __len__(self):
-        path, dirs, files = next(os.walk(root_dir))
+        path, dirs, files = next(os.walk(self.root_dir))
         return len(files)
         # ## TODO: Change
         # return 6999
