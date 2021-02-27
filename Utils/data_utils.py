@@ -17,6 +17,16 @@ def plot_single_w_image(w, generator):
     plt.imshow(new_image)
     plt.show()
 
+
+def get_w_image(w, generator):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    w = w.unsqueeze(0).to(device)
+    sample, latents = generator(
+        [w], input_is_latent=True, return_latents=True
+    )
+    new_image = sample.cpu().detach().numpy().transpose(0, 2, 3, 1)[0]
+    new_image = (new_image + 1) / 2
+
     return new_image
 
 
