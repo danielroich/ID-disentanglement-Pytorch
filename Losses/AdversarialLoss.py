@@ -1,22 +1,28 @@
 import torch
 import torch.nn as nn
-from torch.autograd import grad
+from torch import autograd
 
 
-def calc_Dw_loss(probs: torch.Tensor, label: int, inputs: torch.Tensor, r1_gamma: int, add_regulrization: bool):
+def calc_Dw_loss(probs: torch.Tensor, label: int):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     labels = torch.full((probs.size(0),), label, dtype=torch.float, device=device)
-    grad_penalty = 0
-
-    # Add R1 regularization only if the label is real
-    if add_regulrization:
-        # grad_real = grad(outputs=x_outputs.sum(), inputs=x, create_graph=True)[0]
-        grad_real = grad(outputs=probs, inputs=inputs, grad_outputs=torch.ones_like(probs), create_graph=True)[0]
-        grad_penalty = (grad_real.view(grad_real.size(0), -1).norm(2, dim=1) ** 2).mean()
-        grad_penalty = 0.5 * r1_gamma * grad_penalty
-
     criterion = nn.BCELoss()
 
     adversarial_loss = criterion(probs, labels)
 
-    return adversarial_loss + grad_penalty
+    return adversarial_loss
+
+
+def R1_regulazation(r1_coefficient, probs, ws):
+    return (r1_coefficient / 2) * compute_grad2(probs, ws).mean()
+
+
+def compute_grad2(probs, w_input):
+    batch_size = w_input.size(0)
+    grad_dout = autograd.grad(
+        outputs=probs.sum(), inputs=w_input,
+        create_graph=True, retain_graph=True, only_inputs=True
+    )[0]
+    grad_dout2 = grad_dout.pow(2)
+    reg = grad_dout2.view(batch_size, -1).sum(1)
+    return reg

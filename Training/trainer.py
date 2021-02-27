@@ -1,4 +1,4 @@
-from Losses.AdversarialLoss import calc_Dw_loss
+from Losses.AdversarialLoss import calc_Dw_loss, R1_regulazation
 import torch
 
 from Losses.NonAdversarialLoss import id_loss, landmark_loss, rec_loss
@@ -33,18 +33,22 @@ class Trainer:
 
     def train_discriminator(self, real_w, generated_w):
         self.optimizer_D.zero_grad()
+        real_w.requires_grad_()
 
         # 1.1 Train on Real Data
         prediction_real = self.discriminator(real_w).view(-1)
         # Calculate error and backpropagate
-        error_real = calc_Dw_loss(prediction_real, 1, real_w, self.config['R1Param'], False)
-        error_real.backward()
+        error_real = calc_Dw_loss(prediction_real, 1)
+        error_real.backward(retain_graph=True)
+
+        r1_error = R1_regulazation(self.config['R1Param'], prediction_real, real_w)
+        r1_error.backward()
 
         cloned_generated_w = generated_w.clone().detach()
         # 1.2 Train on Fake Data
         prediction_fake = self.discriminator(cloned_generated_w).view(-1)
         # Calculate error and backpropagate
-        error_fake = calc_Dw_loss(prediction_fake, 0, cloned_generated_w, self.config['R1Param'], False)
+        error_fake = calc_Dw_loss(prediction_fake, 0)
 
         error_fake.backward()
 
@@ -56,15 +60,16 @@ class Trainer:
         return error_real, prediction_real, error_fake, prediction_fake
 
     def train_mapper(self, generated_w):
+
         self.optimizer_M.zero_grad()
         prediction = self.discriminator(generated_w).view(-1)
         # Calculate error and backpropagate
-        error = calc_Dw_loss(prediction, 1, generated_w, self.config['R1Param'], False)
-        error.backward()
+        discriminative_loss = calc_Dw_loss(prediction, 1)
+        discriminative_loss.backward()
         # Update weights with gradients
         self.optimizer_M.step()
         # Return error
-        return error, prediction
+        return discriminative_loss, prediction
 
     def adversarial_train_step(self, real_w, fake_data, print_results=True):
         error_real, prediction_real, error_fake, prediction_fake = self.train_discriminator(real_w, fake_data)
@@ -97,9 +102,9 @@ class Trainer:
         id_loss_val = self.config['lambdaID'] * id_loss(original_id_vec, pred_id_embedding)
 
         landmark_attr_images = self.landmark_transform(original_attr_images).permute(0, 2, 3, 1) \
-                                    .cpu().numpy() * 255
+                                   .cpu().numpy() * 255
         landmark_generated_images = self.landmark_transform(generated_images.detach()) \
-                                         .permute(0, 2, 3, 1).cpu().numpy() * 255
+                                        .permute(0, 2, 3, 1).cpu().numpy() * 255
 
         try:
             _, generated_landmarks = self.landmark_encoder(landmark_generated_images)
