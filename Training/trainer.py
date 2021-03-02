@@ -8,7 +8,8 @@ class Trainer:
 
     def __init__(self, config,
                  discriminator_optimizer: torch.optim.Optimizer,
-                 mapper_optimizer: torch.optim.Optimizer,
+                 adversarial_mapper_optimizer: torch.optim.Optimizer,
+                 non_adversarial_mapper_optimizer: torch.optim.Optimizer,
                  discriminator,
                  generator,
                  id_transform,
@@ -19,8 +20,9 @@ class Trainer:
                  landmark_encoder):
 
         self.config = config
-        self.optimizer_D = discriminator_optimizer
-        self.optimizer_M = mapper_optimizer
+        self.discriminator_optimizer = discriminator_optimizer
+        self.adversarial_mapper_optimizer = adversarial_mapper_optimizer
+        self.non_adversarial_mapper_optimizer = non_adversarial_mapper_optimizer
         self.discriminator = discriminator
         self.discriminator = discriminator
         self.generator = generator
@@ -32,12 +34,10 @@ class Trainer:
         self.landmark_encoder = landmark_encoder
 
     def train_discriminator(self, real_w, generated_w):
-        self.optimizer_D.zero_grad()
+        self.discriminator_optimizer.zero_grad()
         real_w.requires_grad_()
 
-        # 1.1 Train on Real Data
         prediction_real = self.discriminator(real_w).view(-1)
-        # Calculate error and backpropagate
         error_real = calc_Dw_loss(prediction_real, 1)
         error_real.backward(retain_graph=True)
 
@@ -45,91 +45,60 @@ class Trainer:
         r1_error.backward()
 
         cloned_generated_w = generated_w.clone().detach()
-        # 1.2 Train on Fake Data
         prediction_fake = self.discriminator(cloned_generated_w).view(-1)
-        # Calculate error and backpropagate
         error_fake = calc_Dw_loss(prediction_fake, 0)
-
         error_fake.backward()
 
-        # 1.3 Update weights with gradients
-        self.optimizer_D.step()
+        self.discriminator_optimizer.step()
 
-        # Return error and predictions for real and fake inputs
-        # return error_real + error_fake, prediction_real, prediction_fake
         return error_real, prediction_real, error_fake, prediction_fake
 
     def train_mapper(self, generated_w):
 
-        self.optimizer_M.zero_grad()
+        self.adversarial_mapper_optimizer.zero_grad()
         prediction = self.discriminator(generated_w).view(-1)
-        # Calculate error and backpropagate
         discriminative_loss = calc_Dw_loss(prediction, 1)
         discriminative_loss.backward()
-        # Update weights with gradients
-        self.optimizer_M.step()
-        # Return error
+        self.adversarial_mapper_optimizer.step()
+
         return discriminative_loss, prediction
 
-    def adversarial_train_step(self, real_w, fake_data, print_results=True):
+    def adversarial_train_step(self, real_w, fake_data):
         error_real, prediction_real, error_fake, prediction_fake = self.train_discriminator(real_w, fake_data)
         g_error, g_pred = self.train_mapper(fake_data)
 
-        if print_results:
-            prediction_fake = torch.mean(prediction_fake)
-            prediction_real = torch.mean(prediction_real)
-            g_pred = torch.mean(g_pred)
-            print(
-                f"\n error_real: {error_real}, error_fake: {error_fake} \n prediction_real: {prediction_real}, prediction_fake: {prediction_fake}")
-            print(f"\n g_error: {g_error}, g_pred: {g_pred}")
+        return error_real, error_fake, torch.mean(prediction_real), torch.mean(prediction_fake), g_error, torch.mean(
+            g_pred)
 
-        return error_real, error_fake, prediction_real, prediction_fake, g_error, g_pred
-
-    def non_adversarial_train_step(self, fake_data,
-                                   original_id_vec, original_attr_images,
-                                   are_the_same_images=True, print_results=True):
-
-        self.optimizer_M.zero_grad()
+    def non_adversarial_train_step(self, id_vec, attr_images, fake_data, use_rec=True, use_id=True, use_landmark=True):
+        rec_loss_val = torch.tensor(0)
+        id_loss_val = torch.tensor(0)
+        landmark_loss_val = torch.tensor(0)
 
         generated_images, _ = self.generator(
             [fake_data], input_is_latent=True, return_latents=False
         )
         generated_images = (generated_images + 1) / 2
 
-        id_generated_images = self.id_transform(generated_images)
+        if use_id:
+            id_generated_images = self.id_transform(generated_images)
+            pred_id_embedding = torch.squeeze(self.id_encoder(id_generated_images))
+            id_loss_val = self.config['lambdaID'] * id_loss(id_vec, pred_id_embedding)
 
-        pred_id_embedding = torch.squeeze(self.id_encoder(id_generated_images))
-        id_loss_val = self.config['lambdaID'] * id_loss(original_id_vec, pred_id_embedding)
+        if use_landmark:
+            landmark_attr_images = self.landmark_transform(attr_images)
+            landmark_generated_images = self.landmark_transform(generated_images)
+            generated_landmarks, generated_landmarks_nojawline = self.landmark_encoder(landmark_generated_images)
+            real_landmarks, real_landmarks_nojawline = self.landmark_encoder(landmark_attr_images)
+            landmark_loss_val = landmark_loss(generated_landmarks, real_landmarks) * self.config['lambdaLND']
 
-        landmark_attr_images = self.landmark_transform(original_attr_images).permute(0, 2, 3, 1) \
-                                   .cpu().numpy() * 255
-        landmark_generated_images = self.landmark_transform(generated_images.detach()) \
-                                        .permute(0, 2, 3, 1).cpu().numpy() * 255
-
-        try:
-            _, generated_landmarks = self.landmark_encoder(landmark_generated_images)
-            _, real_landmarks = self.landmark_encoder(landmark_attr_images)
-            landmark_loss_val = self.config['lambdaLND'] * landmark_loss(generated_landmarks, real_landmarks)
-
-        except Exception as e:
-            landmark_loss_val = 0
-            if print_results:
-                print(str(e))
-
-        if are_the_same_images:
-            rec_loss_val = self.config['lambdaREC'] * rec_loss(original_attr_images,
-                                                               generated_images, self.config['a'])
-        else:
-            rec_loss_val = 0
+        if use_rec:
+            rec_loss_val = self.config['lambdaREC'] * rec_loss(attr_images, generated_images, self.config['a'])
 
         total_error = rec_loss_val + id_loss_val + landmark_loss_val
 
+        self.non_adversarial_mapper_optimizer.zero_grad()
         total_error.backward()
-        self.optimizer_M.step()
+        self.non_adversarial_mapper_optimizer.step()
 
-        if print_results:
-            print(f"id_loss_val: {id_loss_val}")
-            print(f"landmark_loss: {landmark_loss_val}")
-            print(f"rec_loss: {rec_loss_val}")
-
-        return id_loss_val, rec_loss_val
+        return id_loss_val, rec_loss_val, landmark_loss_val, total_error

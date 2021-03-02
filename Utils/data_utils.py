@@ -87,3 +87,4 @@ def cycle_images_to_create_diff_order(images):
     different_images[0] = images[batch_size - 1]
     different_images[1:] = images[:batch_size - 1]
     return different_images
+
