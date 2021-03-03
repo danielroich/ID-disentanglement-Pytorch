@@ -2,7 +2,7 @@ import torch.nn as nn
 
 
 class Discriminator(nn.Module):
-    def __init__(self, num_features, n_hid = 256):
+    def __init__(self):
         super(Discriminator, self).__init__()
         slope = 0.2
         self.model = nn.Sequential(
