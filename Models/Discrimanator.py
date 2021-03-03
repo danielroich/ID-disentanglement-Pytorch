@@ -6,17 +6,17 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
         slope = 0.2
         self.model = nn.Sequential(
-            nn.Linear(num_features, n_hid),
+            nn.Linear(512, 256),
             nn.LeakyReLU(negative_slope=slope),
             #nn.BatchNorm1d(n_hid, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-            nn.Linear(n_hid, n_hid // 2),
+            nn.Linear(256, 128),
             nn.LeakyReLU(negative_slope=slope),
             # nn.BatchNorm1d(n_hid // 2, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-            nn.Linear(n_hid // 2, n_hid // 4),
+            nn.Linear(128, 64),
             nn.LeakyReLU(negative_slope=slope),
             # nn.BatchNorm1d(n_hid // 4, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-            nn.Linear(n_hid // 4, 1),
-            nn.Sigmoid()
+            nn.Linear(64, 1),
+            nn.Tanh()
         )
         for m in self.model:
             if isinstance(m, nn.Linear):
