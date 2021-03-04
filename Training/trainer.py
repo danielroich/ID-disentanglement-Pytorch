@@ -70,7 +70,7 @@ class Trainer:
         return error_real, error_fake, torch.mean(prediction_real), torch.mean(prediction_fake), g_error, torch.mean(
             g_pred)
 
-    def non_adversarial_train_step(self, id_vec, attr_images, fake_data, use_rec=True, use_id=True, use_landmark=True):
+    def non_adversarial_train_step(self, id_vec, attr_images, fake_data):
         rec_loss_val = torch.tensor(0)
         id_loss_val = torch.tensor(0)
         landmark_loss_val = torch.tensor(0)
@@ -80,19 +80,19 @@ class Trainer:
         )
         generated_images = (generated_images + 1) / 2
 
-        if use_id:
+        if self.config['use_id']:
             id_generated_images = self.id_transform(generated_images)
             pred_id_embedding = torch.squeeze(self.id_encoder(id_generated_images))
             id_loss_val = self.config['lambdaID'] * id_loss(id_vec, pred_id_embedding)
 
-        if use_landmark:
+        if self.config['use_landmark']:
             landmark_attr_images = self.landmark_transform(attr_images)
             landmark_generated_images = self.landmark_transform(generated_images)
             generated_landmarks, generated_landmarks_nojawline = self.landmark_encoder(landmark_generated_images)
             real_landmarks, real_landmarks_nojawline = self.landmark_encoder(landmark_attr_images)
             landmark_loss_val = landmark_loss(generated_landmarks, real_landmarks) * self.config['lambdaLND']
 
-        if use_rec:
+        if self.config['use_reconstruction']:
             rec_loss_val = self.config['lambdaREC'] * rec_loss(attr_images, generated_images, self.config['a'])
 
         total_error = rec_loss_val + id_loss_val + landmark_loss_val
