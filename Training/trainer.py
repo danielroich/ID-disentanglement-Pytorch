@@ -32,7 +32,7 @@ class Trainer:
         self.id_encoder = id_encoder
         self.attr_encoder = attr_encoder
         self.landmark_encoder = landmark_encoder
-        self.vgg_loss = VGGPerceptualLoss()
+        self.vgg_loss = VGGPerceptualLoss().cuda()
 
     def train_discriminator(self, real_w, generated_w):
         self.discriminator_optimizer.zero_grad()
