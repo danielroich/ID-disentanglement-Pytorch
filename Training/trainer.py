@@ -1,8 +1,7 @@
 from Losses.AdversarialLoss import calc_Dw_loss, R1_regulazation
 import torch
 
-from Losses.NonAdversarialLoss import id_loss, landmark_loss
-from Losses.RecLoss import MS_SSIM_L1_LOSS
+from Losses.NonAdversarialLoss import id_loss, landmark_loss, rec_loss
 
 
 class Trainer:
@@ -33,7 +32,6 @@ class Trainer:
         self.id_encoder = id_encoder
         self.attr_encoder = attr_encoder
         self.landmark_encoder = landmark_encoder
-        self.rec_loss_net = MS_SSIM_L1_LOSS(alpha=config['a'])
 
     def train_discriminator(self, real_w, generated_w):
         self.discriminator_optimizer.zero_grad()
@@ -100,7 +98,7 @@ class Trainer:
             landmark_loss_val = landmark_loss(generated_landmarks, real_landmarks) * self.config['lambdaLND']
 
         if self.config['use_reconstruction']:
-            rec_loss_val = self.config['lambdaREC'] * self.rec_loss_net(attr_images, generated_images)
+            rec_loss_val = self.config['lambdaREC'] * rec_loss(attr_images, generated_images, self.config['a'])
 
         total_error = rec_loss_val + id_loss_val + landmark_loss_val
 
