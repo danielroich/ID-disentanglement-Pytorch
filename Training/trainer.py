@@ -71,7 +71,6 @@ class Trainer:
             g_pred)
 
     def non_adversarial_train_step(self, id_vec, attr_images, fake_data):
-        self.rec_loss_net.zero_grad()
         self.id_encoder.zero_grad()
         self.landmark_encoder.zero_grad()
         self.generator.zero_grad()
