@@ -3,7 +3,7 @@ import torchvision
 
 
 class VGGPerceptualLoss(torch.nn.Module):
-    def __init__(self, resize=True):
+    def __init__(self, resize=True, is_grad=False):
         super(VGGPerceptualLoss, self).__init__()
         blocks = []
         blocks.append(torchvision.models.vgg16(pretrained=True).features[:4].eval())
@@ -12,7 +12,7 @@ class VGGPerceptualLoss(torch.nn.Module):
         blocks.append(torchvision.models.vgg16(pretrained=True).features[16:23].eval())
         for bl in blocks:
             for p in bl:
-                p.requires_grad = False
+                p.requires_grad = is_grad
         self.blocks = torch.nn.ModuleList(blocks)
         self.transform = torch.nn.functional.interpolate
         self.mean = torch.nn.Parameter(torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1))

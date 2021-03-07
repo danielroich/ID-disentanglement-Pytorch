@@ -17,7 +17,8 @@ class Trainer:
                  landmark_transform,
                  id_encoder,
                  attr_encoder,
-                 landmark_encoder):
+                 landmark_encoder,
+                 is_grad=False):
 
         self.config = config
         self.discriminator_optimizer = discriminator_optimizer
@@ -33,6 +34,7 @@ class Trainer:
         self.attr_encoder = attr_encoder
         self.landmark_encoder = landmark_encoder
         self.vgg_loss = VGGPerceptualLoss().cuda()
+        self.vgg_loss_grad = VGGPerceptualLoss(is_grad=is_grad).cuda()
 
     def train_discriminator(self, real_w, generated_w):
         self.discriminator_optimizer.zero_grad()
@@ -71,7 +73,7 @@ class Trainer:
         return error_real, error_fake, torch.mean(prediction_real), torch.mean(prediction_fake), g_error, torch.mean(
             g_pred)
 
-    def non_adversarial_train_step_with_vgg(self, id_vec, attr_images, fake_data):
+    def non_adversarial_train_step_with_vgg(self, id_vec, attr_images, fake_data, is_grad=False):
         self.id_encoder.zero_grad()
         self.landmark_encoder.zero_grad()
         self.generator.zero_grad()
@@ -101,7 +103,8 @@ class Trainer:
         if self.config['use_reconstruction']:
             rec_loss_val = self.config['lambdaREC'] * rec_loss(attr_images, generated_images, self.config['a'])
 
-        vgg_loss_val = self.config['lambdaVGG'] * self.vgg_loss(generated_images, attr_images, feature_layers=[2], style_layers=[0, 1, 2, 3])
+        vgg_loss_val = self.config['lambdaVGG'] * self.vgg_loss(generated_images, attr_images, feature_layers=[2],
+                                                                style_layers=[0, 1, 2, 3])
 
         total_error = rec_loss_val + id_loss_val + landmark_loss_val + vgg_loss_val
 

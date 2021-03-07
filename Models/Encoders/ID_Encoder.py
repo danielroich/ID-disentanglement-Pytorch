@@ -1,9 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.utils.data
-import torchvision.datasets as dset
-import torchvision.transforms as transforms
-import matplotlib.pyplot as plt
 
 
 class Resnet50_scratch_dag(nn.Module):
