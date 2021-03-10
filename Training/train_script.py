@@ -14,14 +14,14 @@ run_in_notebook = False
 run_in_slurm = False
 run_in_pycharm = True
 
-# In[ ]:
 
+# In[ ]:
 
 config = {
     'beta1': 0.9,
     'beta2': 0.999,
     'adverserial_D': 2e-5,
-    'adverserial_M': 10e-6,
+    'adverserial_M': 8e-6,
     'non_adverserial_lr': 5e-5,
     'lrAttr': 0.0001,
     'IdDiffersAttrTrainRatio': 3,  # 1/3
@@ -29,8 +29,8 @@ config = {
     'R1Param': 10,
     'lambdaID': 0.1,
     'lambdaLND': 1,
-    'lambdaREC': 3,
-    'lambdaVGG': 0.001,
+    'lambdaREC': 4,
+    'lambdaVGG': 0.01,
     'a': 0.9,
     'use_reconstruction': True,
     'use_id': False,
@@ -61,6 +61,8 @@ BASE_PATH = get_base_path(run_in_colab)
 MOBILE_FACE_NET_WEIGHTS_PATH = BASE_PATH + 'mobilefacenet_model_best.pth.tar'
 GENERATOR_WEIGHTS_PATH = BASE_PATH + '550000.pt'
 E_ID_WEIGHTS_PATH = BASE_PATH + 'resnet50_scratch_dag.pth'
+E_ID_NEW__WEIGHTS_PATH = BASE_PATH + 'resnet50_scratch_weight.pkl'
+DLIB_WEIGHT_PATH = BASE_PATH + 'mmod_human_face_detector.dat'
 IMAGE_DATA_DIR = BASE_PATH + 'fake/small_image/'
 W_DATA_DIR = BASE_PATH + 'fake/small_w/'
 MODELS_DIR = BASE_PATH + 'Models/'
@@ -105,35 +107,25 @@ else:
 
 import wandb
 
-wandb.login()
-
 # In[ ]:
 
-from Losses.AdversarialLoss import calc_Dw_loss
-from Losses.NonAdversarialLoss import rec_loss
-from Models.Encoders.ID_Encoder import resnet50_scratch_dag
-from Models.Encoders.Attribute_Encoder import Encoder_Attribute
+import Models.Encoders.ID_Resnet as ID_Resnet
 from Models.Encoders.Landmark_Encoder import Landmark_Encoder
 from Models.Encoders.Inception import Inception
 from Models.Discrimanator import Discriminator
 from Models.LatentMapper import LatentMapper
-from Losses.NonAdversarialLoss import id_loss, landmark_loss, rec_loss
 from Models.StyleGan2.model import Generator
-from Utils.data_utils import get_w_image, plot_single_w_image, get_w_by_index, WDataSet, ConcatDataset, \
-    make_concat_loaders, cycle_images_to_create_diff_order
+from Utils.data_utils import get_w_image, plot_single_w_image, WDataSet, ConcatDataset
 from Training.trainer import Trainer
 from torch.utils.data import DataLoader, random_split
-from tqdm import tqdm
 import time
 import torch
-import torch.nn as nn
 import torch.utils.data
 import torchvision.datasets as dset
-from torch.utils.data import Dataset
 import torchvision.transforms as transforms
-import matplotlib.pyplot as plt
 from tqdm import tqdm
 import numpy as np
+from Models.Encoders.id_network import  get_id_vec
 import seaborn as sns
 
 sns.set()
@@ -144,9 +136,8 @@ sns.set()
 # In[ ]:
 
 
-id_encoder = resnet50_scratch_dag(E_ID_WEIGHTS_PATH)
+id_encoder = ID_Resnet.resnet50(num_classes=8631, include_top=False, face_model_dir=DLIB_WEIGHT_PATH)
 attr_encoder = Inception()
-# attr_encoder = Encoder_Attribute(pretrained=False)
 discriminator = Discriminator()
 mlp = LatentMapper()
 landmark_encoder = Landmark_Encoder.Encoder_Landmarks(MOBILE_FACE_NET_WEIGHTS_PATH)
@@ -154,6 +145,8 @@ generator = Generator(GENERATOR_IMAGE_SIZE, 512, 8)
 
 # In[ ]:
 
+ID_Resnet.load_state_dict(id_encoder, E_ID_NEW__WEIGHTS_PATH)
+id_encoder.fc.reset_parameters()
 
 state_dict = torch.load(GENERATOR_WEIGHTS_PATH)
 generator.load_state_dict(state_dict['g_ema'], strict=False)
@@ -161,9 +154,10 @@ generator.load_state_dict(state_dict['g_ema'], strict=False)
 # In[ ]:
 
 
-ID_IMAGE_SIZE = id_encoder.meta['imageSize'][1]
-ID_BATCH_MEAN = np.asarray(id_encoder.meta['mean']) / 255
-ID_BATCH_STD = np.asarray(id_encoder.meta['std']) / 255
+# ID_IMAGE_SIZE = id_encoder.meta['imageSize'][1]
+# ID_BATCH_MEAN = np.asarray(id_encoder.meta['mean']) / 255
+# ID_BATCH_STD = np.asarray(id_encoder.meta['std']) / 255
+ID_IMAGE_SIZE = 224
 ATTR_IMAGE_SIZE = attr_encoder.meta['imageSize'][1]
 ATTR_BATCH_MEAN = np.asarray(attr_encoder.meta['mean'])
 ATTR_BATCH_STD = np.asarray(attr_encoder.meta['std'])
@@ -207,7 +201,7 @@ toggle_grad(landmark_encoder, True)
 id_transform = transforms.Compose([
     transforms.Resize(ID_IMAGE_SIZE),
     transforms.CenterCrop(ID_IMAGE_SIZE),
-    transforms.Normalize(ID_BATCH_MEAN, ID_BATCH_STD)
+    # transforms.Normalize(ID_BATCH_MEAN, ID_BATCH_STD)
 ])
 
 attr_transform = transforms.Compose([
@@ -251,7 +245,8 @@ optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=config['adverseria
                                betas=(config['beta1'], config['beta2']))
 optimizer_adv_M = torch.optim.Adam(mlp.parameters(), lr=config['adverserial_M'],
                                    betas=(config['beta1'], config['beta2']))
-optimizer_non_adv_M = torch.optim.Adam([{'params': mlp.parameters()},{'params':attr_encoder.parameters()}], lr=config['non_adverserial_lr'],
+optimizer_non_adv_M = torch.optim.Adam([{'params': mlp.parameters()}, {'params': attr_encoder.parameters()}],
+                                       lr=config['non_adverserial_lr'],
                                        betas=(config['beta1'], config['beta2']))
 
 # In[ ]:
@@ -267,7 +262,7 @@ run = wandb.init(project="yotam_disantalgement", reinit=True, config=config)
 
 def get_concat_vec(id_images, attr_images, id_transform, id_encoder, attr_transform, attr_encoder):
     with torch.no_grad():
-        id_vec = torch.squeeze(id_encoder(id_transform(id_images)))
+        id_vec = torch.squeeze(id_encoder(id_images))
         non_cycled_attr_vec = torch.squeeze(attr_encoder(attr_transform(attr_images)))
         # cycled_attr_vec = torch.squeeze(attr_encoder(attr_transform(cycled_attr_images)))
         non_cycled_test_vec = torch.cat((id_vec, non_cycled_attr_vec), dim=1)
@@ -350,8 +345,11 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
             # if idx % config['IdDiffersAttrTrainRatio'] == 0:
             #   attr_images = cycle_images_to_create_diff_order(attr_images)
 
-            with torch.no_grad():
-                id_vec = torch.squeeze(id_encoder(id_transform(id_images)))
+            try:
+                with torch.no_grad():
+                    id_vec = torch.squeeze(id_encoder(id_images))
+            except:
+                continue
 
             attr_vec = torch.squeeze(attr_encoder(attr_transform(attr_images)))
             try:
@@ -383,10 +381,12 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
                 total_error_train.append(total_error)
 
             pbar.update(1)
-            if idx % 25 == 0 and idx != 0:
+            if idx % 5 == 0 and idx != 0:
                 with torch.no_grad():
                     if run_in_notebook:
-                        plot_single_w_image(mlp(get_concat_vec(test_id_images, test_attr_images, id_transform, id_encoder, attr_transform, attr_encoder))[0], generator)
+                        plot_single_w_image(mlp(
+                            get_concat_vec(test_id_images, test_attr_images, id_transform, id_encoder, attr_transform,
+                                           attr_encoder))[0], generator)
 
                     wandb.log(
                         {'D_error_real_train': mean(D_error_real_train), 'D_error_fake_train': mean(D_error_fake_train),
@@ -408,14 +408,12 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
                     vgg_loss_train = []
                     total_error_train = []
 
-            if idx % 100 == 0 and idx != 0:
+            if idx % 5 == 0 and idx != 0:
                 with torch.no_grad():
-                    id_generated_image = get_w_image(mlp(
-                        get_concat_vec(test_id_images, test_attr_images, id_transform, id_encoder, attr_transform,
-                                       attr_encoder))[0], generator)
-                    id_generated_image2 = get_w_image(mlp(
-                        get_concat_vec(test_id_images, test_attr_images, id_transform, id_encoder, attr_transform,
-                                       attr_encoder))[1], generator)
+                    concat_vec = get_concat_vec(test_id_images, test_attr_images, id_transform, id_encoder,
+                                                attr_transform, attr_encoder)
+                    id_generated_image = get_w_image(mlp(concat_vec)[0], generator)
+                    id_generated_image2 = get_w_image(mlp(concat_vec)[1], generator)
                     # id_and_attr_generated_image = get_w_image(mlp(cycled_test_vec)[0], generator)
                     wandb.log(
                         {"ID_Train_Images1": [wandb.Image(id_generated_image * 255, caption=f"generated_image{idx}")]})
@@ -423,6 +421,6 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
                         wandb.Image(id_generated_image2 * 255, caption=f"generated_image{idx}_2")]})
                     # wandb.log({"Cycle_Train_Images": [wandb.Image(id_and_attr_generated_image* 255, caption=f"generated_image{idx}")]})
 
-            if idx % 500 == 0 and idx != 0:
+            if idx % 100 == 0 and idx != 0:
                 torch.save(mlp, f'{MODELS_DIR}maper_{idx}_{time.time()}_{int(total_error)}.pt')
                 torch.save(discriminator, f'{MODELS_DIR}discriminator_{idx}_{time.time()}_{int(total_error)}.pt')

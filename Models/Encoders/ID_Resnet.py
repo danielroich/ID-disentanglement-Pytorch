@@ -2,6 +2,17 @@ import torch.nn as nn
 import math
 import torch
 import pickle
+from facenet_pytorch import MTCNN, InceptionResnetV1
+from torchvision import transforms
+
+mtcnn = MTCNN(
+    image_size=220, margin=0, min_face_size=20,
+    thresholds=[0.6, 0.7, 0.7], factor=0.709, post_process=True,
+    device='cuda'
+)
+to_pil = transforms.ToPILImage(mode='RGB')
+crop_transform = transforms.Compose([transforms.Resize(224),
+                                          transforms.CenterCrop(224)])
 
 def conv3x3(in_planes, out_planes, stride=1):
     """3x3 convolution with padding"""
@@ -123,7 +134,22 @@ class ResNet(nn.Module):
 
         return nn.Sequential(*layers)
 
+    def crop_tensor_according_to_bboxes(self, images, bboxes):
+        cropped_batch = []
+        for idx, image in enumerate(images):
+            cropped_batch.append(
+                crop_transform(image[:, int(bboxes[idx][0][1]):int(bboxes[idx][0][3]),
+                                    int(bboxes[idx][0][0]):int(bboxes[idx][0][2])].unsqueeze(0)))
+
+        return torch.cat(cropped_batch, dim=0)
+
+    def preprocess_images_to_id_encoder(self, images):
+        bboxes = [mtcnn.detect(to_pil(image))[0] for image in images]
+        cropped_images = self.crop_tensor_according_to_bboxes(images, bboxes)
+        return cropped_images
+
     def forward(self, x):
+        x = self.preprocess_images_to_id_encoder(x)
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -151,8 +177,7 @@ def resnet50(**kwargs):
     return model
 
 
-
-def load_state_dict(model, fname):
+def resnet_load_state_dict(model, fname):
     """
     Set parameters converted from Caffe models authors of VGGFace2 provide.
     See https://www.robots.ox.ac.uk/~vgg/data/vgg_face2/.
@@ -169,7 +194,8 @@ def load_state_dict(model, fname):
             try:
                 own_state[name].copy_(torch.from_numpy(param))
             except Exception:
-                raise RuntimeError('While copying the parameter named {}, whose dimensions in the model are {} and whose '\
-                                   'dimensions in the checkpoint are {}.'.format(name, own_state[name].size(), param.size()))
+                raise RuntimeError(
+                    'While copying the parameter named {}, whose dimensions in the model are {} and whose ' \
+                    'dimensions in the checkpoint are {}.'.format(name, own_state[name].size(), param.size()))
         else:
             raise KeyError('unexpected key "{}" in state_dict'.format(name))
