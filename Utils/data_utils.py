@@ -3,7 +3,10 @@ import torch
 import os
 import numpy as np
 from torch.utils.data import Dataset
+from PIL import Image
+from torchvision import transforms
 
+to_tensor_transform = transforms.ToTensor()
 
 def plot_single_w_image(w, generator):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -30,16 +33,23 @@ def get_w_image(w, generator):
     return new_image
 
 
-def get_w_by_index(idx, root_dir):
+def get_data_by_index(idx, root_dir, postfix):
     if torch.is_tensor(idx):
         idx = idx.tolist()
 
     dir_idx = idx // 1000
 
-    w_path = os.path.join(root_dir, str(dir_idx), str(idx) + ".npy")
-    w = np.load(w_path)
+    path = os.path.join(root_dir, str(dir_idx), str(idx) + postfix)
+    if postfix == ".npy":
+        data = torch.tensor(np.load(path))
 
-    return torch.tensor(w)
+    elif postfix == ".png":
+        data = to_tensor_transform(Image.open(path))
+
+    else:
+        return None
+
+    return data
 
 
 class WDataSet(Dataset):
@@ -71,6 +81,23 @@ class ConcatDataset(Dataset):
         return min(len(d) for d in self.datasets)
 
 
+class Image_W_Dataset(Dataset):
+    def __init__(self, w_dir, image_dir):
+        self.w_dir = w_dir
+        self.image_dir = image_dir
+
+    def __len__(self):
+        num_of_files = 0
+        for base, dirs, files in os.walk(self.w_dir):
+            num_of_files += len(files)
+        return num_of_files
+
+    def __getitem__(self, idx):
+        w = get_data_by_index(idx, self.w_dir, ".npy")
+        image = get_data_by_index(idx, self.image_dir, ".png")
+        return w,image
+
+
 def make_concat_loaders(batch_size, datasets):
     full_dataset = ConcatDataset(datasets)
 
@@ -87,4 +114,3 @@ def cycle_images_to_create_diff_order(images):
     different_images[0] = images[batch_size - 1]
     different_images[1:] = images[:batch_size - 1]
     return different_images
-

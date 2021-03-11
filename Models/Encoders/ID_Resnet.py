@@ -137,9 +137,12 @@ class ResNet(nn.Module):
     def crop_tensor_according_to_bboxes(self, images, bboxes):
         cropped_batch = []
         for idx, image in enumerate(images):
-            cropped_batch.append(
-                crop_transform(image[:, int(bboxes[idx][0][1]):int(bboxes[idx][0][3]),
-                                    int(bboxes[idx][0][0]):int(bboxes[idx][0][2])].unsqueeze(0)))
+            try:
+                cropped_image = crop_transform(image[:, int(bboxes[idx][0][1]):int(bboxes[idx][0][3]),
+                                        int(bboxes[idx][0][0]):int(bboxes[idx][0][2])].unsqueeze(0))
+            except:
+                cropped_image = crop_transform(image.unsqueeze(0))
+            cropped_batch.append(cropped_image)
 
         return torch.cat(cropped_batch, dim=0)
 

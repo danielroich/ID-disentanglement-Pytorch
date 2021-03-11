@@ -118,6 +118,7 @@ class Trainer:
         self.landmark_encoder.zero_grad()
         self.generator.zero_grad()
         self.vgg_loss.zero_grad()
+        self.attr_encoder.zero_grad()
 
         rec_loss_val = torch.tensor(0)
         id_loss_val = torch.tensor(0)
