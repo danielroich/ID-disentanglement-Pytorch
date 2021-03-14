@@ -6,7 +6,7 @@ from facenet_pytorch import MTCNN, InceptionResnetV1
 from torchvision import transforms
 import Global_Config
 
-IMAGE_SIZE = 160
+IMAGE_SIZE = 220
 mtcnn = MTCNN(
     image_size=IMAGE_SIZE, margin=0, min_face_size=20,
     thresholds=[0.6, 0.7, 0.7], factor=0.709, post_process=True,
@@ -16,7 +16,7 @@ to_pil = transforms.ToPILImage(mode='RGB')
 crop_transform = transforms.Compose([transforms.Resize(IMAGE_SIZE),
                                           transforms.CenterCrop(IMAGE_SIZE)])
 
-resnet = InceptionResnetV1(pretrained='vggface2').eval().to(Global_Config.device)
+resnet = InceptionResnetV1(pretrained='vggface2', classify=False).eval().to(Global_Config.device)
 
 class ID_Encoder(torch.nn.Module):
 

@@ -14,7 +14,9 @@ class Inception(nn.Module):
 
         removed = list(full_inception.children())[:-1]
         self.model = nn.Sequential(*removed)
+        self.preprocess = transforms.Compose([transforms.Resize(299),
+                                              transforms.CenterCrop(299)])
 
     def forward(self, data):
-
-        return self.model(data)
+        resized_data = self.preprocess(data)
+        return self.model(resized_data * 255)

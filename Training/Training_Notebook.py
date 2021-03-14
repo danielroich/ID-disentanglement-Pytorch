@@ -18,20 +18,20 @@ config = {
     'beta1' : 0.9,
     'beta2' : 0.999,
     'adverserial_D' : 2e-5,
-    'adverserial_M' : 10e-6,
-    'non_adverserial_lr' : 5e-5,
+    'adverserial_M' : 5e-6,
+    'non_adverserial_lr' : 2e-5,
     'lrAttr' : 0.0001,
     'IdDiffersAttrTrainRatio' : 3, # 1/3
     'batchSize' : 8,
     'R1Param' : 10,
     'lambdaID' : 1,
-    'lambdaLND' : 1,
-    'lambdaREC' : 3,
-    'lambdaVGG': 0.001,
+    'lambdaLND' : 0.004,
+    'lambdaREC' : 1,
+    'lambdaVGG': 0.0005,
     'a' : 0.84,
     'use_reconstruction' : True,
     'use_id' : False,
-    'use_landmark' : False,
+    'use_landmark' : True,
     'use_adverserial' : False,
     'train_precentege' : 0.95,
     'epochs' : 40
@@ -158,9 +158,9 @@ landmark_encoder = landmark_encoder.to(Global_Config.device)
 id_encoder = id_encoder.eval()
 attr_encoder = attr_encoder.train()
 discriminator = discriminator.train()
-generator = generator.train()
+generator = generator.eval()
 mlp = mlp.train()
-landmark_encoder = landmark_encoder.train()
+landmark_encoder = landmark_encoder.eval()
 
 
 # In[14]:
@@ -307,6 +307,7 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
             try:
                 with torch.no_grad():
                     id_vec = torch.squeeze(id_encoder(id_images))
+                    real_landmarks, real_landmarks_nojawline = landmark_encoder(attr_images)
             except Exception as e:
                 print(e)
 
@@ -331,8 +332,8 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
             else:
                 # use_rec = (idx % config['IdDiffersAttrTrainRatio'] != 0)
                 use_rec = True
-                id_loss_val, rec_loss_val, landmark_loss_val, vgg_loss_val, total_error = trainer.non_adversarial_train_step_with_vgg(
-                    id_vec, attr_images, fake_data)
+                id_loss_val, rec_loss_val, landmark_loss_val, vgg_loss_val, total_error = trainer.non_adversarial_train_step(
+                    id_vec, attr_images, fake_data, real_landmarks)
                 id_loss_train.append(id_loss_val)
                 rec_loss_train.append(rec_loss_val)
                 landmark_loss_train.append(landmark_loss_val)
