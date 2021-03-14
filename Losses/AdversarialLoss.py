@@ -1,11 +1,10 @@
 import torch
 import torch.nn as nn
 from torch import autograd
-
+import Global_Config
 
 def calc_Dw_loss(probs: torch.Tensor, label: int):
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    labels = torch.full((probs.size(0),), label, dtype=torch.float, device=device)
+    labels = torch.full((probs.size(0),), label, dtype=torch.float, device=Global_Config.device)
     criterion = nn.BCELoss()
 
     adversarial_loss = criterion(probs, labels)

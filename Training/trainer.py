@@ -12,9 +12,6 @@ class Trainer:
                  non_adversarial_mapper_optimizer: torch.optim.Optimizer,
                  discriminator,
                  generator,
-                 id_transform,
-                 attr_transform,
-                 landmark_transform,
                  id_encoder,
                  attr_encoder,
                  landmark_encoder,
@@ -27,9 +24,6 @@ class Trainer:
         self.discriminator = discriminator
         self.discriminator = discriminator
         self.generator = generator
-        self.id_transform = id_transform
-        self.attr_transform = attr_transform
-        self.landmark_transform = landmark_transform
         self.id_encoder = id_encoder
         self.attr_encoder = attr_encoder
         self.landmark_encoder = landmark_encoder
@@ -72,6 +66,7 @@ class Trainer:
         return error_real, error_fake, torch.mean(prediction_real), torch.mean(prediction_fake), g_error, torch.mean(
             g_pred)
 
+
     def non_adversarial_train_step_with_vgg(self, id_vec, attr_images, fake_data, is_grad=False):
         self.id_encoder.zero_grad()
         self.landmark_encoder.zero_grad()
@@ -88,15 +83,12 @@ class Trainer:
         generated_images = (generated_images + 1) / 2
 
         if self.config['use_id']:
-            id_generated_images = self.id_transform(generated_images)
-            pred_id_embedding = torch.squeeze(self.id_encoder(id_generated_images))
+            pred_id_embedding = torch.squeeze(self.id_encoder(generated_images))
             id_loss_val = self.config['lambdaID'] * id_loss(id_vec, pred_id_embedding)
 
         if self.config['use_landmark']:
-            landmark_attr_images = self.landmark_transform(attr_images)
-            landmark_generated_images = self.landmark_transform(generated_images)
-            generated_landmarks, generated_landmarks_nojawline = self.landmark_encoder(landmark_generated_images)
-            real_landmarks, real_landmarks_nojawline = self.landmark_encoder(landmark_attr_images)
+            generated_landmarks, generated_landmarks_nojawline = self.landmark_encoder(generated_images)
+            real_landmarks, real_landmarks_nojawline = self.landmark_encoder(attr_images)
             landmark_loss_val = landmark_loss(generated_landmarks, real_landmarks) * self.config['lambdaLND']
 
         if self.config['use_reconstruction']:
@@ -130,15 +122,12 @@ class Trainer:
         generated_images = (generated_images + 1) / 2
 
         if self.config['use_id']:
-            id_generated_images = self.id_transform(generated_images)
-            pred_id_embedding = torch.squeeze(self.id_encoder(id_generated_images))
+            pred_id_embedding = torch.squeeze(self.id_encoder(generated_images))
             id_loss_val = self.config['lambdaID'] * id_loss(id_vec, pred_id_embedding)
 
         if self.config['use_landmark']:
-            landmark_attr_images = self.landmark_transform(attr_images)
-            landmark_generated_images = self.landmark_transform(generated_images)
-            generated_landmarks, generated_landmarks_nojawline = self.landmark_encoder(landmark_generated_images)
-            real_landmarks, real_landmarks_nojawline = self.landmark_encoder(landmark_attr_images)
+            generated_landmarks, generated_landmarks_nojawline = self.landmark_encoder(generated_images)
+            real_landmarks, real_landmarks_nojawline = self.landmark_encoder(attr_images)
             landmark_loss_val = landmark_loss(generated_landmarks, real_landmarks) * self.config['lambdaLND']
 
         if self.config['use_reconstruction']:

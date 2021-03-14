@@ -8,9 +8,7 @@
 
 
 import os
-run_in_colab = False
-run_in_notebook = True
-run_in_slurm = False
+import Global_Config
 
 
 # In[2]:
@@ -45,7 +43,7 @@ GENERATOR_IMAGE_SIZE = 256
 
 
 def get_base_path(run_in_colab):
-    if run_in_slurm:
+    if Global_Config.run_in_slurm:
         return '/home/joberant/nlp_fall_2021/danielroich/disantalgement/Data/'
     if run_in_colab:
         return '/content/drive/MyDrive/CNN-project-weights/'
@@ -55,7 +53,7 @@ def get_base_path(run_in_colab):
 # In[4]:
 
 
-BASE_PATH = get_base_path(run_in_colab)
+BASE_PATH = get_base_path(Global_Config.run_in_colab)
 
 MOBILE_FACE_NET_WEIGHTS_PATH = BASE_PATH + 'mobilefacenet_model_best.pth.tar'
 GENERATOR_WEIGHTS_PATH = BASE_PATH + '550000.pt'
@@ -71,7 +69,7 @@ MODELS_DIR = BASE_PATH + 'Models/'
 
 
 def prepeare_env_for_local_use():
-    CUDA_VISIBLE_DEVICES = '3'
+    CUDA_VISIBLE_DEVICES = '4'
     os.chdir('..')
     os.environ['CUDA_DEVICE_ORDER']='PCI_BUS_ID'
     os.environ['CUDA_VISIBLE_DEVICES']= CUDA_VISIBLE_DEVICES
@@ -93,9 +91,9 @@ def prepeare_env_for_colab():
 # In[7]:
 
 
-if run_in_colab:
+if Global_Config.run_in_colab:
     prepeare_env_for_colab()
-elif run_in_slurm:
+elif Global_Config.run_in_slurm:
     os.chdir('..')
 else:
     prepeare_env_for_local_use()
@@ -105,25 +103,21 @@ else:
 
 
 import wandb
-from Models.Encoders.ID_Resnet import resnet50, resnet_load_state_dict
+from Training.trainer import Trainer
+from torch.utils.data import DataLoader, random_split
 from Models.Encoders.Landmark_Encoder import Landmark_Encoder
+from Models.Encoders.ID_Encoder import ID_Encoder
 from Models.Encoders.Inception import Inception
 from Models.Discrimanator import Discriminator
 from Models.LatentMapper import LatentMapper
 from Models.StyleGan2.model import Generator
-from Utils.data_utils import get_w_image, plot_single_w_image, WDataSet, ConcatDataset, Image_W_Dataset
-from Training.trainer import Trainer
-from torch.utils.data import DataLoader, random_split
-from Models.Encoders.ID_Encoder import resnet50_scratch_dag
+from Utils.data_utils import get_w_image, plot_single_w_image, Image_W_Dataset
 import time
 import torch
 import torch.utils.data
-import torchvision.datasets as dset
 import torchvision.transforms as transforms
 from tqdm import tqdm
 import numpy as np
-from Models.Encoders.id_network import  get_id_vec
-import seaborn as sns
 import matplotlib.pyplot as plt
 
 
@@ -133,7 +127,7 @@ import matplotlib.pyplot as plt
 # In[9]:
 
 
-id_encoder = resnet50(num_classes=8631, include_top=False)
+id_encoder = ID_Encoder()
 attr_encoder = Inception()
 discriminator = Discriminator()
 mlp = LatentMapper()
@@ -143,52 +137,30 @@ generator = Generator(GENERATOR_IMAGE_SIZE, 512, 8)
 
 # In[10]:
 
-
-resnet_load_state_dict(id_encoder, E_ID_NEW__WEIGHTS_PATH)
-id_encoder.fc.reset_parameters()
-
 state_dict = torch.load(GENERATOR_WEIGHTS_PATH)
 generator.load_state_dict(state_dict['g_ema'], strict=False)
-
-
-# In[11]:
-
-
-# ID_IMAGE_SIZE = id_encoder.meta['imageSize'][1]
-# ID_BATCH_MEAN = np.asarray(id_encoder.meta['mean']) / 255
-# ID_BATCH_STD = np.asarray(id_encoder.meta['std']) / 255
-# ATTR_IMAGE_SIZE = attr_encoder.meta['imageSize'][1]
-# ATTR_BATCH_MEAN = np.asarray(attr_encoder.meta['mean'])
-# ATTR_BATCH_STD = np.asarray(attr_encoder.meta['std'])
-# LANDMARK_IMAGE_SIZE = 112
-
-ID_IMAGE_SIZE = 224
-ATTR_IMAGE_SIZE = attr_encoder.meta['imageSize'][1]
-ATTR_BATCH_MEAN = np.asarray(attr_encoder.meta['mean'])
-ATTR_BATCH_STD = np.asarray(attr_encoder.meta['std'])
-LANDMARK_IMAGE_SIZE = 112
 
 
 # In[12]:
 
 
-id_encoder = id_encoder.cuda()
-attr_encoder = attr_encoder.cuda()
-discriminator = discriminator.cuda()
-mlp = mlp.cuda()
-generator = generator.cuda()
-landmark_encoder = landmark_encoder.cuda()
+id_encoder = id_encoder.to(Global_Config.device)
+attr_encoder = attr_encoder.to(Global_Config.device)
+discriminator = discriminator.to(Global_Config.device)
+mlp = mlp.to(Global_Config.device)
+generator = generator.to(Global_Config.device)
+landmark_encoder = landmark_encoder.to(Global_Config.device)
 
 
 # In[13]:
 
 
 id_encoder = id_encoder.eval()
-attr_encoder = attr_encoder.eval()
+attr_encoder = attr_encoder.train()
 discriminator = discriminator.train()
-generator = generator.eval()
+generator = generator.train()
 mlp = mlp.train()
-landmark_encoder = landmark_encoder.eval()
+landmark_encoder = landmark_encoder.train()
 
 
 # In[14]:
@@ -207,24 +179,6 @@ toggle_grad(attr_encoder, True)
 toggle_grad(generator, True)
 toggle_grad(mlp, True)
 toggle_grad(landmark_encoder, True)
-
-
-# In[16]:
-
-
-id_transform = transforms.Compose([
-    transforms.Resize(ID_IMAGE_SIZE),
-    transforms.CenterCrop(ID_IMAGE_SIZE),
-    # transforms.Normalize(ID_BATCH_MEAN, ID_BATCH_STD)
-])
-
-attr_transform = transforms.Compose([
-    transforms.Resize(ATTR_IMAGE_SIZE),
-    transforms.CenterCrop(ATTR_IMAGE_SIZE),
-    transforms.Normalize(ATTR_BATCH_MEAN, ATTR_BATCH_STD)
-])
-
-landmark_transform = transforms.Compose([transforms.Resize(LANDMARK_IMAGE_SIZE)])
 
 
 # In[17]:
@@ -261,10 +215,8 @@ optimizer_non_adv_M = torch.optim.Adam(list(mlp.parameters()) + list(attr_encode
 # In[21]:
 
 
-# TODO: Change trainer to recieve 3 optimizers
-
 trainer = Trainer(config, optimizer_D, optimizer_adv_M,optimizer_non_adv_M,discriminator,generator,
-                  id_transform, attr_transform,landmark_transform, id_encoder, attr_encoder, landmark_encoder)
+                  id_encoder, attr_encoder, landmark_encoder, True)
 
 
 # In[22]:
@@ -276,21 +228,12 @@ run = wandb.init(project="yotam_disantalgement", reinit=True, config = config)
 # In[23]:
 
 
-def get_concat_vec(id_images, attr_images, id_encoder, attr_transform, attr_encoder):
+def get_concat_vec(id_images, attr_images, id_encoder, attr_encoder):
     with torch.no_grad():
         id_vec = torch.squeeze(id_encoder(id_images))
-        non_cycled_attr_vec = torch.squeeze(attr_encoder(attr_transform(attr_images)))
+        non_cycled_attr_vec = torch.squeeze(attr_encoder(attr_images))
         non_cycled_test_vec = torch.cat((id_vec, non_cycled_attr_vec), dim=1)
         return non_cycled_test_vec
-
-
-# In[24]:
-
-
-from PIL import Image
-image_path = '/disk2/danielroich/yotam_disentanglement/Data/fake/small_image/6/6975.png'
-image = Image.open(image_path)
-plt.imshow(image)
 
 
 # In[25]:
@@ -298,14 +241,14 @@ plt.imshow(image)
 
 ws, images  = next(iter((test_loader)))
 
-test_id_images = images.cuda().clone()
-test_attr_images = images.cuda().clone()
-test_ws = ws.cuda()
+test_id_images = images.to(Global_Config.device).clone()
+test_attr_images = images.to(Global_Config.device).clone()
+test_ws = ws.to(Global_Config.device)
 with torch.no_grad():
     image1 = get_w_image(test_ws[0], generator)
     image12 = get_w_image(test_ws[1], generator)
 
-    if run_in_notebook:
+    if Global_Config.run_in_notebook:
         print('ID image1:')
         plot_single_w_image(test_ws[0], generator)
         print('ID image2:')
@@ -352,13 +295,9 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
         for idx, data in enumerate(train_loader):
             ws, images = data
 
-            id_images = images.detach().clone().cuda()
-            attr_images = images.detach().clone().cuda()
-            ws = ws.cuda()
-
-            id_images.requires_grad = True
-            attr_images.requires_grad = True
-            ws.requires_grad = True
+            id_images = images.detach().clone().to(Global_Config.device)
+            attr_images = images.detach().clone().to(Global_Config.device)
+            ws = ws.to(Global_Config.device)
 
             # if idx % config['IdDiffersAttrTrainRatio'] == 0:
             #   attr_images = cycle_images_to_create_diff_order(attr_images)
@@ -369,7 +308,7 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
             except:
                 continue
 
-            attr_vec = torch.squeeze(attr_encoder(attr_transform(attr_images)))
+            attr_vec = torch.squeeze(attr_encoder(attr_images))
             try:
                 encoded_vec = torch.cat((id_vec, attr_vec), dim=1)
             except Exception as e:
@@ -401,10 +340,9 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
             pbar.update(1)
             if idx % 30 == 0 and idx != 0:
                 with torch.no_grad():
-                    if run_in_notebook:
+                    if Global_Config.run_in_notebook:
                         plot_single_w_image(mlp(
-                            get_concat_vec(test_id_images, test_attr_images, id_encoder, attr_transform,
-                                           attr_encoder))[0], generator)
+                            get_concat_vec(test_id_images, test_attr_images, id_encoder, attr_encoder))[0], generator)
 
                     wandb.log(
                         {'D_error_real_train': mean(D_error_real_train), 'D_error_fake_train': mean(D_error_fake_train),
@@ -428,7 +366,7 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
 
             if idx % 30 == 0 and idx != 0:
                 with torch.no_grad():
-                    concat_vec = get_concat_vec(test_id_images, test_attr_images, id_encoder, attr_transform, attr_encoder)
+                    concat_vec = get_concat_vec(test_id_images, test_attr_images, id_encoder, attr_encoder)
                     id_generated_image = get_w_image(mlp(concat_vec)[0], generator)
                     id_generated_image2 = get_w_image(mlp(concat_vec)[1], generator)
                     wandb.log(

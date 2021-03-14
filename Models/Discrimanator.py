@@ -8,15 +8,11 @@ class Discriminator(nn.Module):
         self.model = nn.Sequential(
             nn.Linear(512, 256),
             nn.LeakyReLU(negative_slope=slope),
-            #nn.BatchNorm1d(n_hid, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
             nn.Linear(256, 128),
             nn.LeakyReLU(negative_slope=slope),
-            # nn.BatchNorm1d(n_hid // 2, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
             nn.Linear(128, 64),
             nn.LeakyReLU(negative_slope=slope),
-            # nn.BatchNorm1d(n_hid // 4, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-            nn.Linear(64, 1),
-            nn.Sigmoid()
+            nn.Linear(64, 1)
         )
         for m in self.model:
             if isinstance(m, nn.Linear):

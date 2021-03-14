@@ -5,12 +5,12 @@ import numpy as np
 from torch.utils.data import Dataset
 from PIL import Image
 from torchvision import transforms
+import Global_Config
 
 to_tensor_transform = transforms.ToTensor()
 
 def plot_single_w_image(w, generator):
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    w = w.unsqueeze(0).to(device)
+    w = w.unsqueeze(0).to(Global_Config.device)
     sample, latents = generator(
         [w], input_is_latent=True, return_latents=True
     )
@@ -22,8 +22,7 @@ def plot_single_w_image(w, generator):
 
 
 def get_w_image(w, generator):
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    w = w.unsqueeze(0).to(device)
+    w = w.unsqueeze(0).to(Global_Config.device)
     sample, latents = generator(
         [w], input_is_latent=True, return_latents=True
     )
@@ -108,9 +107,8 @@ def make_concat_loaders(batch_size, datasets):
 
 
 def cycle_images_to_create_diff_order(images):
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     batch_size = len(images)
-    different_images = torch.empty_like(images, device=device)
+    different_images = torch.empty_like(images, device=Global_Config.device)
     different_images[0] = images[batch_size - 1]
     different_images[1:] = images[:batch_size - 1]
     return different_images

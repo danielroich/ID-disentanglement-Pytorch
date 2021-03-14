@@ -4,15 +4,17 @@ import torch
 import pickle
 from facenet_pytorch import MTCNN, InceptionResnetV1
 from torchvision import transforms
+import Global_Config
 
+IMAGE_SIZE = 160
 mtcnn = MTCNN(
-    image_size=220, margin=0, min_face_size=20,
+    image_size=IMAGE_SIZE, margin=0, min_face_size=20,
     thresholds=[0.6, 0.7, 0.7], factor=0.709, post_process=True,
-    device='cuda'
+    device=Global_Config.device
 )
 to_pil = transforms.ToPILImage(mode='RGB')
-crop_transform = transforms.Compose([transforms.Resize(224),
-                                          transforms.CenterCrop(224)])
+crop_transform = transforms.Compose([transforms.Resize(IMAGE_SIZE),
+                                          transforms.CenterCrop(IMAGE_SIZE)])
 
 def conv3x3(in_planes, out_planes, stride=1):
     """3x3 convolution with padding"""

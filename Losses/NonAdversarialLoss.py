@@ -18,3 +18,9 @@ def id_loss(encoded_input_image, encoded_generated_image):
 def landmark_loss(input_attr_lnd, output_lnd):
     loss = l2_criterion(input_attr_lnd, output_lnd)
     return loss
+
+# def discriminator_loss(real_pred, fake_pred):
+#     real_loss = F.softplus(-real_pred).mean()
+#     fake_loss = F.softplus(fake_pred).mean()
+#
+#     return real_loss + fake_loss
