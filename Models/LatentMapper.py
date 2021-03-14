@@ -6,7 +6,7 @@ class LatentMapper(nn.Module):
         super().__init__()
         slope = 0.2
         self.model = nn.Sequential(
-            nn.Linear(4096, 2048),
+            nn.Linear(2560, 2048),
             nn.LeakyReLU(negative_slope=slope),
             # nn.BatchNorm1d(n_hid, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
             nn.Linear(2048,1024),

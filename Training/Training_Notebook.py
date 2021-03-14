@@ -190,7 +190,8 @@ w_image_dataset = Image_W_Dataset(W_DATA_DIR, IMAGE_DATA_DIR)
 # In[18]:
 
 
-train_size = int(config['train_precentege'] * len(w_image_dataset))
+# train_size = int(config['train_precentege'] * len(w_image_dataset))
+train_size = 65000
 test_size = len(w_image_dataset) - train_size
 train_data, test_data = random_split(w_image_dataset, [train_size, test_size])
 
@@ -244,6 +245,7 @@ ws, images  = next(iter((test_loader)))
 test_id_images = images.to(Global_Config.device).clone()
 test_attr_images = images.to(Global_Config.device).clone()
 test_ws = ws.to(Global_Config.device)
+
 with torch.no_grad():
     image1 = get_w_image(test_ws[0], generator)
     image12 = get_w_image(test_ws[1], generator)
@@ -305,8 +307,8 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
             try:
                 with torch.no_grad():
                     id_vec = torch.squeeze(id_encoder(id_images))
-            except:
-                continue
+            except Exception as e:
+                print(e)
 
             attr_vec = torch.squeeze(attr_encoder(attr_images))
             try:
