@@ -16,7 +16,7 @@ to_pil = transforms.ToPILImage(mode='RGB')
 crop_transform = transforms.Compose([transforms.Resize(IMAGE_SIZE),
                                           transforms.CenterCrop(IMAGE_SIZE)])
 
-resnet = InceptionResnetV1(pretrained='vggface2').eval()
+resnet = InceptionResnetV1(pretrained='vggface2').eval().to(Global_Config.device)
 
 class ID_Encoder(torch.nn.Module):
 
