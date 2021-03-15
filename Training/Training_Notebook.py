@@ -26,7 +26,7 @@ config = {
     'lambdaID': 50,
     'lambdaLND': 0.04,
     'lambdaREC': 2,
-    'lambdaVGG': 0.0004,
+    'lambdaVGG': 1,
     'a': 0.84,
     'use_reconstruction': True,
     'use_id': True,
@@ -231,26 +231,19 @@ def get_concat_vec(id_images, attr_images, id_encoder, attr_encoder):
 
 # In[25]:
 
+data = next(iter(test_loader))
+ws, images = data
 
-ws, images = next(iter((test_loader)))
-
-test_id_images = images.to(Global_Config.device).clone()
-test_attr_images = images.to(Global_Config.device).clone()
+test_id_images = images.to(Global_Config.device)
+test_attr_images = test_id_images
 test_ws = ws.to(Global_Config.device)
-test_attr_images_cycled = cycle_images_to_create_diff_order(test_attr_images)
+test_attr_images_cycled = cycle_images_to_create_diff_order(test_id_images)
 
 with torch.no_grad():
-    image1 = get_w_image(test_ws[0], generator)
-    image12 = get_w_image(test_ws[config['batchSize'] - 1], generator)
+    for idx in range(len(test_ws)):
+        w_image = get_w_image(test_ws[idx], generator)
+        wandb.log({f"Test_ID_Image{idx}": [wandb.Image(w_image * 255, caption=f"Test_ID_Image{idx}")]}, step=0)
 
-    if Global_Config.run_in_notebook:
-        print('ID image1:')
-        plot_single_w_image(test_ws[0], generator)
-        print('ID image2:')
-        plot_single_w_image(test_ws[config['batchSize'] - 1], generator)
-
-    wandb.log({"Test_ID_Image1": [wandb.Image(image1 * 255, caption="ID image1")]}, step=0)
-    wandb.log({"Test_ID_Image2": [wandb.Image(image12 * 255, caption="ID image2")]}, step=0)
 
 
 # ## Global Training
@@ -359,7 +352,7 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
                     vgg_loss_train = []
                     total_error_train = []
 
-            if idx % 30 == 0 and idx != 0:
+            if idx % 80 == 0 and idx != 0:
                 with torch.no_grad():
                     concat_vec = get_concat_vec(test_id_images, test_attr_images, id_encoder, attr_encoder)
                     concat_vec_cycled = get_concat_vec(test_id_images, test_attr_images_cycled, id_encoder,
@@ -367,12 +360,13 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
                     id_generated_image = get_w_image(mlp(concat_vec)[0], generator)
                     id_generated_image2 = get_w_image(mlp(concat_vec)[config['batchSize'] - 1], generator)
                     id_generated_image_cycle_gan = get_w_image(mlp(concat_vec_cycled)[0], generator)
-                    wandb.log(
-                        {"ID_Train_Images1": [wandb.Image(id_generated_image * 255, caption=f"generated_image{idx}")]})
-                    wandb.log({"ID_Train_Images2": [
-                        wandb.Image(id_generated_image2 * 255, caption=f"generated_image{idx}_2")]})
-                    wandb.log({"Cycle_Train_Images": [
-                        wandb.Image(id_generated_image_cycle_gan * 255, caption=f"generated_image{idx}_cycled")]})
+
+                    with torch.no_grad():
+                        for idx in range(len(test_ws)):
+                            id_generated_image = get_w_image(mlp(concat_vec)[idx], generator)
+                            wandb.log(
+                                {f"Train_ID_Image{idx}": [wandb.Image(id_generated_image * 255, caption=f"Train_ID_Image{idx}")]},
+                                step=0)
 
             if idx % 600 == 0 and idx != 0:
                 torch.save(mlp, f'{MODELS_DIR}maper_{idx}_{time.time()}_{int(total_error)}.pt')

@@ -1,8 +1,7 @@
 from Losses.AdversarialLoss import calc_Dw_loss, R1_regulazation
 import torch
-from Losses.vgg_preceptual_loss import VGGPerceptualLoss
-from Losses.NonAdversarialLoss import id_loss, landmark_loss, rec_loss
-
+from Losses.NonAdversarialLoss import id_loss, landmark_loss, rec_loss, VGGLoss
+import Global_Config
 
 class Trainer:
 
@@ -27,7 +26,7 @@ class Trainer:
         self.id_encoder = id_encoder
         self.attr_encoder = attr_encoder
         self.landmark_encoder = landmark_encoder
-        self.vgg_loss = VGGPerceptualLoss(is_grad=is_grad).cuda()
+        self.vgg_loss = VGGLoss().to(Global_Config.device)
 
     def train_discriminator(self, real_w, generated_w):
         self.discriminator_optimizer.zero_grad()
@@ -80,6 +79,8 @@ class Trainer:
         generated_images, _ = self.generator(
             [fake_data], input_is_latent=True, return_latents=False
         )
+        ## TODO: Check for each net the image scale
+        ## TODO: Pip install lpips
         generated_images = (generated_images + 1) / 2
 
         if self.config['use_id']:
@@ -94,8 +95,7 @@ class Trainer:
             rec_loss_val = self.config['lambdaREC'] * rec_loss(attr_images, generated_images, self.config['a'])
 
         if not self.config['use_adverserial']:
-            vgg_loss_val = self.config['lambdaVGG'] * self.vgg_loss(generated_images, attr_images, feature_layers=[2],
-                                                                    style_layers=[0, 1, 2, 3])
+            vgg_loss_val = self.config['lambdaVGG'] * self.vgg_loss(attr_images, generated_images)
 
         total_error = rec_loss_val + id_loss_val + landmark_loss_val + vgg_loss_val
 
