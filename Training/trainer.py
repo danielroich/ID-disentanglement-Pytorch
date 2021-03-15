@@ -66,8 +66,7 @@ class Trainer:
         return error_real, error_fake, torch.mean(prediction_real), torch.mean(prediction_fake), g_error, torch.mean(
             g_pred)
 
-
-    def non_adversarial_train_step(self, real_id_vec, attr_images, fake_data, real_landmarks):
+    def non_adversarial_train_step(self, real_id_vec, attr_images, fake_data, real_landmarks, use_rec_extra_term):
         self.id_encoder.zero_grad()
         self.landmark_encoder.zero_grad()
         self.generator.zero_grad()
@@ -91,7 +90,7 @@ class Trainer:
             generated_landmarks, generated_landmarks_nojawline = self.landmark_encoder(generated_images)
             landmark_loss_val = landmark_loss(generated_landmarks, real_landmarks) * self.config['lambdaLND']
 
-        if self.config['use_reconstruction']:
+        if use_rec_extra_term and self.config['use_reconstruction']:
             rec_loss_val = self.config['lambdaREC'] * rec_loss(attr_images, generated_images, self.config['a'])
 
         if not self.config['use_adverserial']:
@@ -105,4 +104,3 @@ class Trainer:
         self.non_adversarial_mapper_optimizer.step()
 
         return id_loss_val, rec_loss_val, landmark_loss_val, vgg_loss_val, total_error
-
