@@ -6,6 +6,9 @@ Official TensorFlow Implementation: https://github.com/YotamNitzan/ID-disentangl
 ## Description
 Pytorch implementation of the paper Face Identity Disentanglement via Latent Space Mapping for both training and evaluation, with StyleGAN 2.
 (maybe we can upload the pdf to google drive and put here the link)
+
+## Setup
+All the weight files we used are available at the attach link: [weight files](https://drive.google.com/drive/folders/18K5YBBJRiCIradtttlLcdtSyLUo3cUI5?usp=sharing)
 ## Training
 
 ### Dataset
