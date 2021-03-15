@@ -1,7 +1,10 @@
+from torchvision import transforms
+
 from Losses.AdversarialLoss import calc_Dw_loss, R1_regulazation
 import torch
 from Losses.NonAdversarialLoss import id_loss, landmark_loss, rec_loss, VGGLoss
 import Global_Config
+
 
 class Trainer:
 
@@ -13,8 +16,7 @@ class Trainer:
                  generator,
                  id_encoder,
                  attr_encoder,
-                 landmark_encoder,
-                 is_grad=False):
+                 landmark_encoder):
 
         self.config = config
         self.discriminator_optimizer = discriminator_optimizer
@@ -27,6 +29,8 @@ class Trainer:
         self.attr_encoder = attr_encoder
         self.landmark_encoder = landmark_encoder
         self.vgg_loss = VGGLoss().to(Global_Config.device)
+        self.vgg_normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                                  std=[0.229, 0.224, 0.225])
 
     def train_discriminator(self, real_w, generated_w):
         self.discriminator_optimizer.zero_grad()
@@ -81,8 +85,9 @@ class Trainer:
         )
         ## TODO: Check for each net the image scale
         ## TODO: Pip install lpips
-        generated_images = (generated_images + 1) / 2
+        normalized_generated_images = (generated_images + 1) / 2
 
+        ## -1 to 1
         if self.config['use_id']:
             pred_id_embedding = torch.squeeze(self.id_encoder(generated_images))
             id_loss_val = self.config['lambdaID'] * id_loss(real_id_vec, pred_id_embedding)
@@ -91,11 +96,15 @@ class Trainer:
             generated_landmarks, generated_landmarks_nojawline = self.landmark_encoder(generated_images)
             landmark_loss_val = landmark_loss(generated_landmarks, real_landmarks) * self.config['lambdaLND']
 
+        ## 0 to 1
         if use_rec_extra_term and self.config['use_reconstruction']:
-            rec_loss_val = self.config['lambdaREC'] * rec_loss(attr_images, generated_images, self.config['a'])
+            rec_loss_val = self.config['lambdaREC'] * rec_loss(attr_images, normalized_generated_images,
+                                                               self.config['a'])
 
+        # 0 to 1 and then normalize according to official site
         if not self.config['use_adverserial']:
-            vgg_loss_val = self.config['lambdaVGG'] * self.vgg_loss(attr_images, generated_images)
+            vgg_loss_val = self.config['lambdaVGG'] * self.vgg_loss(self.vgg_normalize(attr_images),
+                                                                    self.vgg_normalize(normalized_generated_images))
 
         total_error = rec_loss_val + id_loss_val + landmark_loss_val + vgg_loss_val
 
