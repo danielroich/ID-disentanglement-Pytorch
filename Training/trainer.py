@@ -93,7 +93,7 @@ class Trainer:
             id_loss_val = self.config['lambdaID'] * id_loss(real_id_vec, pred_id_embedding)
 
         if self.config['use_landmark']:
-            generated_landmarks, generated_landmarks_nojawline = self.landmark_encoder(generated_images)
+            generated_landmarks, generated_landmarks_nojawline = self.landmark_encoder(normalized_generated_images)
             landmark_loss_val = landmark_loss(generated_landmarks, real_landmarks) * self.config['lambdaLND']
 
         ## 0 to 1
