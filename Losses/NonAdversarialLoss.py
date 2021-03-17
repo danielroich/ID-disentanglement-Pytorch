@@ -23,6 +23,11 @@ def landmark_loss(input_attr_lnd, output_lnd):
     return loss
 
 
+def l2_loss(attr_images, generated_images):
+    loss = l2_criterion(attr_images, generated_images)
+    return loss
+
+
 # Perceptual loss that uses a pretrained VGG network
 class VGGLoss(nn.Module):
     def __init__(self):

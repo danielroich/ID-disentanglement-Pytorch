@@ -24,6 +24,7 @@ config = {
     'batchSize': 8,
     'R1Param': 14,
     'lambdaID': 1,
+    'lambdaL2' : 1,
     'lambdaLND': 1,
     'lambdaREC': 2,
     'lambdaVGG': 3,
@@ -34,7 +35,8 @@ config = {
     'use_adverserial': False,
     'train_precentege': 0.95,
     'epochs': 40,
-    'use_cycle' : False
+    'use_cycle' : False,
+    'use_l2' : True
 }
 GENERATOR_IMAGE_SIZE = 256
 
@@ -59,6 +61,7 @@ MOBILE_FACE_NET_WEIGHTS_PATH = BASE_PATH + 'mobilefacenet_model_best.pth.tar'
 GENERATOR_WEIGHTS_PATH = BASE_PATH + '550000.pt'
 E_ID_WEIGHTS_PATH = BASE_PATH + 'resnet50_scratch_dag.pth'
 E_ID_NEW__WEIGHTS_PATH = BASE_PATH + 'resnet50_scratch_weight.pkl'
+E_ID_LOSS_PATH = BASE_PATH + 'model_ir_se50.pth'
 DLIB_WEIGHT_PATH = BASE_PATH + 'mmod_human_face_detector.dat'
 IMAGE_DATA_DIR = BASE_PATH + 'fake/small_image/'
 W_DATA_DIR = BASE_PATH + 'fake/small_w/'
