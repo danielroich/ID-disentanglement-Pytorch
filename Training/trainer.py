@@ -5,7 +5,7 @@ import torch
 from Losses.NonAdversarialLoss import id_loss, landmark_loss, rec_loss, VGGLoss, l2_loss
 import Global_Config
 from Losses import id_loss
-# from criteria.lpips.lpips import LPIPS
+from Losses.lpips.lpips import LPIPS
 
 
 class Trainer:
@@ -32,6 +32,7 @@ class Trainer:
         self.attr_encoder = attr_encoder
         self.landmark_encoder = landmark_encoder
         self.id_loss = id_loss.IDLoss(id_loss_pth).to(Global_Config.device).eval()
+        self.lpips_loss = LPIPS(net_type='vgg').to(Global_Config.device).eval()
         self.vgg_loss = VGGLoss().to(Global_Config.device)
         self.vgg_normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                                   std=[0.229, 0.224, 0.225])
@@ -79,12 +80,12 @@ class Trainer:
         self.generator.zero_grad()
         self.vgg_loss.zero_grad()
 
-        total_loss = torch.tensor(0, dtype=torch.float)
-        rec_loss_val = torch.tensor(0, dtype=torch.float)
-        id_loss_val = torch.tensor(0, dtype=torch.float)
-        landmark_loss_val = torch.tensor(0, dtype=torch.float)
-        vgg_loss_val = torch.tensor(0, dtype=torch.float)
-        l2_loss_val = torch.tensor(0, dtype=torch.float)
+        total_loss = torch.tensor(0, dtype=torch.float, device=Global_Config.device)
+        rec_loss_val = torch.tensor(0, dtype=torch.float, device=Global_Config.device)
+        id_loss_val = torch.tensor(0, dtype=torch.float, device=Global_Config.device)
+        landmark_loss_val = torch.tensor(0, dtype=torch.float, device=Global_Config.device)
+        vgg_loss_val = torch.tensor(0, dtype=torch.float, device=Global_Config.device)
+        l2_loss_val = torch.tensor(0, dtype=torch.float, device=Global_Config.device)
 
         generated_images, _ = self.generator(
             [fake_data], input_is_latent=True, return_latents=False
@@ -117,9 +118,9 @@ class Trainer:
 
         # 0 to 1 and then normalize according to official site
         if use_rec_extra_term and (not self.config['use_adverserial']):
-            vgg_loss_val = self.config['lambdaVGG'] * self.lpips_loss(attr_images, normalized_generated_images)
+            vgg_loss_val = self.config['lambdaVGG'] * self.lpips_loss(normalized_generated_images, attr_images)
             # vgg_loss_val = self.config['lambdaVGG'] * self.vgg_loss(self.vgg_normalize(attr_images),
-            #                                                       self.vgg_normalize(normalized_generated_images))
+            #                                                         self.vgg_normalize(normalized_generated_images))
 
         self.non_adversarial_mapper_optimizer.zero_grad()
         total_loss.backward()

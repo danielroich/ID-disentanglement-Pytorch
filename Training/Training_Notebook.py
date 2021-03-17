@@ -24,19 +24,19 @@ config = {
     'batchSize': 8,
     'R1Param': 14,
     'lambdaID': 1,
-    'lambdaL2' : 1,
+    'lambdaL2': 1,
     'lambdaLND': 1,
     'lambdaREC': 2,
     'lambdaVGG': 3,
     'a': 0.84,
-    'use_reconstruction': False,
+    'use_reconstruction': True,
     'use_id': False,
     'use_landmark': False,
     'use_adverserial': False,
     'train_precentege': 0.95,
     'epochs': 40,
-    'use_cycle' : False,
-    'use_l2' : True
+    'use_cycle': False,
+    'use_l2': True
 }
 GENERATOR_IMAGE_SIZE = 256
 
@@ -214,7 +214,7 @@ optimizer_non_adv_M = torch.optim.Adam(list(mlp.parameters()) + list(attr_encode
 
 
 trainer = Trainer(config, optimizer_D, optimizer_adv_M, optimizer_non_adv_M, discriminator, generator,
-                  id_encoder, attr_encoder, landmark_encoder)
+                  id_encoder, attr_encoder, landmark_encoder, E_ID_LOSS_PATH)
 
 # In[22]:
 
@@ -274,6 +274,7 @@ id_loss_train = []
 rec_loss_train = []
 landmark_loss_train = []
 vgg_loss_train = []
+l2_loss_train = []
 total_error_train = []
 
 # In[ ]:
@@ -295,7 +296,7 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
 
             try:
                 with torch.no_grad():
-                    id_vec = torch.squeeze(id_encoder((id_images * 2 ) - 1))
+                    id_vec = torch.squeeze(id_encoder((id_images * 2) - 1))
                     real_landmarks, real_landmarks_nojawline = landmark_encoder(attr_images)
             except Exception as e:
                 print(e)
@@ -320,13 +321,14 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
 
             else:
                 use_rec_extra_term = (idx % config['IdDiffersAttrTrainRatio'] != 0)
-                id_loss_val, rec_loss_val, landmark_loss_val, vgg_loss_val, total_error = trainer.non_adversarial_train_step(
+                id_loss_val, rec_loss_val, landmark_loss_val, vgg_loss_val, l2_loss_val, total_error = trainer.non_adversarial_train_step(
                     id_vec, attr_images, fake_data, real_landmarks, use_rec_extra_term)
                 id_loss_train.append(id_loss_val)
                 rec_loss_train.append(rec_loss_val)
                 landmark_loss_train.append(landmark_loss_val)
                 vgg_loss_train.append(vgg_loss_val)
                 total_error_train.append(total_error)
+                l2_loss_train.append(l2_loss_val)
 
             pbar.update(1)
             if idx % 30 == 0 and idx != 0:
@@ -342,13 +344,14 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
                          'G_error_train': mean(G_error_train), 'G_pred_train': mean(G_pred_train),
                          'id_loss_train': mean(id_loss_train), 'rec_loss_train': mean(rec_loss_train),
                          'landmark_loss_train': mean(landmark_loss_train), 'total_error_train': mean(total_error_train),
-                         'vgg_loss_train': mean(vgg_loss_train)})
+                         'vgg_loss_train': mean(vgg_loss_train), 'l2_loss_train': mean(l2_loss_train)})
                     D_error_real_train = []
                     D_error_fake_train = []
                     D_prediction_real_train = []
                     D_prediction_fake_train = []
                     G_error_train = []
                     G_pred_train = []
+                    l2_loss_train = []
                     id_loss_train = []
                     rec_loss_train = []
                     landmark_loss_train = []
@@ -373,7 +376,8 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
                             if config['use_cycle']:
                                 wandb.log(
                                     {f"Cycle_Train_ID_Image{idx}": [
-                                        wandb.Image(cycled_generated_image * 255, caption=f"Cycle_Train_ID_Image{idx}")]})
+                                        wandb.Image(cycled_generated_image * 255,
+                                                    caption=f"Cycle_Train_ID_Image{idx}")]})
 
             if idx % 600 == 0 and idx != 0:
                 torch.save(mlp, f'{MODELS_DIR}maper_{idx}_{time.time()}_{int(total_error)}.pt')
