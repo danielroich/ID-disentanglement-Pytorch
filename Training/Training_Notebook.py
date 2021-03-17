@@ -120,6 +120,7 @@ import torch
 import torch.utils.data
 import torchvision.transforms as transforms
 from tqdm import tqdm
+from Losses import id_loss
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -144,7 +145,8 @@ generator.load_state_dict(state_dict['g_ema'], strict=False)
 # In[12]:
 
 
-id_encoder = id_encoder.to(Global_Config.device)
+# id_encoder = id_encoder.to(Global_Config.device)
+id_encoder = id_loss.IDLoss(E_ID_LOSS_PATH).to(Global_Config.device)
 attr_encoder = attr_encoder.to(Global_Config.device)
 discriminator = discriminator.to(Global_Config.device)
 mlp = mlp.to(Global_Config.device)
@@ -227,7 +229,7 @@ run = wandb.init(project="yotam_disantalgement", reinit=True, config=config)
 
 def get_concat_vec(id_images, attr_images, id_encoder, attr_encoder):
     with torch.no_grad():
-        id_vec = torch.squeeze(id_encoder((id_images * 2) - 1))
+        id_vec = torch.squeeze(id_encoder.extract_feats((id_images * 2) - 1))
         attr_vec = torch.squeeze(attr_encoder(attr_images))
         test_vec = torch.cat((id_vec, attr_vec), dim=1)
         return test_vec
@@ -261,31 +263,15 @@ def mean(tensors_list):
     return sum(tensors_list) / len(tensors_list)
 
 
-# In[27]:
-
-
-D_error_real_train = []
-D_error_fake_train = []
-D_prediction_real_train = []
-D_prediction_fake_train = []
-G_error_train = []
-G_pred_train = []
-id_loss_train = []
-rec_loss_train = []
-landmark_loss_train = []
-vgg_loss_train = []
-l2_loss_train = []
-total_error_train = []
-
 # In[ ]:
 
 
 use_descrimantive_loss = config['use_adverserial']
-total_error = 0
 with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
     for epoch in range(config['epochs']):
         wandb.log({'epoch': epoch})
         for idx, data in enumerate(train_loader):
+            Global_Config.step += 1
             ws, images = data
 
             id_images = images.detach().clone().to(Global_Config.device)
@@ -296,7 +282,7 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
 
             try:
                 with torch.no_grad():
-                    id_vec = torch.squeeze(id_encoder((id_images * 2) - 1))
+                    id_vec = torch.squeeze(id_encoder.extract_feats(id_images))
                     real_landmarks, real_landmarks_nojawline = landmark_encoder(attr_images)
             except Exception as e:
                 print(e)
@@ -309,54 +295,15 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
 
             fake_data = mlp(encoded_vec)
 
-            if use_descrimantive_loss and idx % 2 == 0:
-                error_real, error_fake, prediction_real, prediction_fake, g_error, g_pred = trainer.adversarial_train_step(
-                    ws, fake_data)
-                D_error_real_train.append(error_real.cpu().detach())
-                D_error_fake_train.append(error_fake.cpu().detach())
-                D_prediction_real_train.append(prediction_real.cpu().detach())
-                D_prediction_fake_train.append(prediction_fake.cpu().detach())
-                G_error_train.append(g_error.cpu().detach())
-                G_pred_train.append(g_pred.cpu().detach())
+            use_rec_extra_term = not config['use_cycle']
+            if config['use_cycle']:
+                use_rec_extra_term = idx % config['IdDiffersAttrTrainRatio'] != 0
 
-            else:
-                use_rec_extra_term = (idx % config['IdDiffersAttrTrainRatio'] != 0)
-                id_loss_val, rec_loss_val, landmark_loss_val, vgg_loss_val, l2_loss_val, total_error = trainer.non_adversarial_train_step(
-                    id_vec, attr_images, fake_data, real_landmarks, use_rec_extra_term)
-                id_loss_train.append(id_loss_val)
-                rec_loss_train.append(rec_loss_val)
-                landmark_loss_train.append(landmark_loss_val)
-                vgg_loss_train.append(vgg_loss_val)
-                total_error_train.append(total_error)
-                l2_loss_train.append(l2_loss_val)
+            total_error = trainer.non_adversarial_train_step(
+                id_vec, attr_images, fake_data, real_landmarks, use_rec_extra_term)
+            wandb.log({'total error': total_error.detach().cpu()}, step=Global_Config.step)
 
             pbar.update(1)
-            if idx % 30 == 0 and idx != 0:
-                with torch.no_grad():
-                    if Global_Config.run_in_notebook:
-                        plot_single_w_image(mlp(
-                            get_concat_vec(test_id_images, test_attr_images, id_encoder, attr_encoder))[0], generator)
-
-                    wandb.log(
-                        {'D_error_real_train': mean(D_error_real_train), 'D_error_fake_train': mean(D_error_fake_train),
-                         'D_prediction_real_train': mean(D_prediction_real_train),
-                         'D_prediction_fake_train': mean(D_prediction_fake_train),
-                         'G_error_train': mean(G_error_train), 'G_pred_train': mean(G_pred_train),
-                         'id_loss_train': mean(id_loss_train), 'rec_loss_train': mean(rec_loss_train),
-                         'landmark_loss_train': mean(landmark_loss_train), 'total_error_train': mean(total_error_train),
-                         'vgg_loss_train': mean(vgg_loss_train), 'l2_loss_train': mean(l2_loss_train)})
-                    D_error_real_train = []
-                    D_error_fake_train = []
-                    D_prediction_real_train = []
-                    D_prediction_fake_train = []
-                    G_error_train = []
-                    G_pred_train = []
-                    l2_loss_train = []
-                    id_loss_train = []
-                    rec_loss_train = []
-                    landmark_loss_train = []
-                    vgg_loss_train = []
-                    total_error_train = []
 
             if idx % 80 == 0 and idx != 0:
                 with torch.no_grad():
@@ -372,12 +319,13 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
                                 cycled_generated_image = get_w_image(mlp(concat_vec_cycled)[idx], generator)
                             wandb.log(
                                 {f"Train_ID_Image{idx}": [
-                                    wandb.Image(id_generated_image * 255, caption=f"Train_ID_Image{idx}")]})
+                                    wandb.Image(id_generated_image * 255, caption=f"Train_ID_Image{idx}")]},
+                                step=Global_Config.step)
                             if config['use_cycle']:
                                 wandb.log(
                                     {f"Cycle_Train_ID_Image{idx}": [
                                         wandb.Image(cycled_generated_image * 255,
-                                                    caption=f"Cycle_Train_ID_Image{idx}")]})
+                                                    caption=f"Cycle_Train_ID_Image{idx}")]}, step=Global_Config.step)
 
             if idx % 600 == 0 and idx != 0:
                 torch.save(mlp, f'{MODELS_DIR}maper_{idx}_{time.time()}_{int(total_error)}.pt')
@@ -385,3 +333,14 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
                 torch.save(discriminator, f'{MODELS_DIR}discriminator_{idx}_{time.time()}_{int(total_error)}.pt')
 
 # In[ ]:
+
+
+# if use_descrimantive_loss and idx % 2 == 0:
+#     error_real, error_fake, prediction_real, prediction_fake, g_error, g_pred = trainer.adversarial_train_step(
+#         ws, fake_data)
+#     D_error_real_train.append(error_real.cpu().detach())
+#     D_error_fake_train.append(error_fake.cpu().detach())
+#     D_prediction_real_train.append(prediction_real.cpu().detach())
+#     D_prediction_fake_train.append(prediction_fake.cpu().detach())
+#     G_error_train.append(g_error.cpu().detach())
+#     G_pred_train.append(g_pred.cpu().detach())

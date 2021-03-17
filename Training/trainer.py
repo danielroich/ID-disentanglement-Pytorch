@@ -5,7 +5,8 @@ import torch
 from Losses.NonAdversarialLoss import id_loss, landmark_loss, rec_loss, VGGLoss, l2_loss
 import Global_Config
 from Losses import id_loss
-from Losses.lpips.lpips import LPIPS
+import lpips
+import wandb
 
 
 class Trainer:
@@ -19,7 +20,7 @@ class Trainer:
                  id_encoder,
                  attr_encoder,
                  landmark_encoder,
-                 id_loss_pth):
+                 id_loss_net):
 
         self.config = config
         self.discriminator_optimizer = discriminator_optimizer
@@ -31,8 +32,8 @@ class Trainer:
         self.id_encoder = id_encoder
         self.attr_encoder = attr_encoder
         self.landmark_encoder = landmark_encoder
-        self.id_loss = id_loss.IDLoss(id_loss_pth).to(Global_Config.device).eval()
-        self.lpips_loss = LPIPS(net_type='vgg').to(Global_Config.device).eval()
+        self.id_loss_net = id_loss_net
+        self.lpips_loss = lpips.LPIPS(net='alex').to(Global_Config.device).eval()
         self.vgg_loss = VGGLoss().to(Global_Config.device)
         self.vgg_normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                                   std=[0.229, 0.224, 0.225])
@@ -81,11 +82,7 @@ class Trainer:
         self.vgg_loss.zero_grad()
 
         total_loss = torch.tensor(0, dtype=torch.float, device=Global_Config.device)
-        rec_loss_val = torch.tensor(0, dtype=torch.float, device=Global_Config.device)
-        id_loss_val = torch.tensor(0, dtype=torch.float, device=Global_Config.device)
-        landmark_loss_val = torch.tensor(0, dtype=torch.float, device=Global_Config.device)
-        vgg_loss_val = torch.tensor(0, dtype=torch.float, device=Global_Config.device)
-        l2_loss_val = torch.tensor(0, dtype=torch.float, device=Global_Config.device)
+
 
         generated_images, _ = self.generator(
             [fake_data], input_is_latent=True, return_latents=False
@@ -98,27 +95,32 @@ class Trainer:
         if self.config['use_id']:
             # pred_id_embedding = torch.squeeze(self.id_encoder(generated_images))
             # id_loss_val = self.config['lambdaID'] * id_loss(real_id_vec, pred_id_embedding)
-            id_loss_val = self.config['lambdaID'] * self.id_loss(normalized_generated_images, id_images)
+            id_loss_val = self.config['lambdaID'] * self.id_loss_net(generated_images, id_images)
             total_loss += id_loss_val
+            wandb.log({'id_loss_val': id_loss_val.detach().cpu()}, step=Global_Config.step)
 
         if self.config['use_landmark']:
             generated_landmarks, generated_landmarks_nojawline = self.landmark_encoder(normalized_generated_images)
             landmark_loss_val = landmark_loss(generated_landmarks, real_landmarks) * self.config['lambdaLND']
             total_loss += landmark_loss_val
+            wandb.log({'landmark_loss_val': landmark_loss_val.detach().cpu()}, step=Global_Config.step)
 
         ## 0 to 1
         if use_rec_extra_term and self.config['use_reconstruction']:
             rec_loss_val = self.config['lambdaREC'] * rec_loss(attr_images, normalized_generated_images,
                                                                self.config['a'])
             total_loss += rec_loss_val
+            wandb.log({'rec_loss_val': rec_loss_val.detach().cpu()}, step=Global_Config.step)
 
         if self.config['use_l2'] > 0:
             l2_loss_val = self.config['lambdaL2'] * l2_loss(attr_images, normalized_generated_images)
             total_loss += l2_loss_val
+            wandb.log({'l2_loss_val': l2_loss_val.detach().cpu()}, step=Global_Config.step)
 
         # 0 to 1 and then normalize according to official site
         if use_rec_extra_term and (not self.config['use_adverserial']):
             vgg_loss_val = self.config['lambdaVGG'] * self.lpips_loss(normalized_generated_images, attr_images)
+            wandb.log({'vgg_loss_val': vgg_loss_val.detach().cpu()}, step=Global_Config.step)
             # vgg_loss_val = self.config['lambdaVGG'] * self.vgg_loss(self.vgg_normalize(attr_images),
             #                                                         self.vgg_normalize(normalized_generated_images))
 
@@ -126,4 +128,4 @@ class Trainer:
         total_loss.backward()
         self.non_adversarial_mapper_optimizer.step()
 
-        return id_loss_val, rec_loss_val, landmark_loss_val, vgg_loss_val, l2_loss_val, total_loss
+        return total_loss
