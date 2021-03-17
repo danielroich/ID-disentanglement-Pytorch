@@ -19,8 +19,7 @@ class Trainer:
                  generator,
                  id_encoder,
                  attr_encoder,
-                 landmark_encoder,
-                 id_loss_net):
+                 landmark_encoder):
 
         self.config = config
         self.discriminator_optimizer = discriminator_optimizer
@@ -32,7 +31,6 @@ class Trainer:
         self.id_encoder = id_encoder
         self.attr_encoder = attr_encoder
         self.landmark_encoder = landmark_encoder
-        self.id_loss_net = id_loss_net
         self.lpips_loss = lpips.LPIPS(net='alex').to(Global_Config.device).eval()
         self.vgg_loss = VGGLoss().to(Global_Config.device)
         self.vgg_normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -99,7 +97,7 @@ class Trainer:
         if self.config['use_id']:
             # pred_id_embedding = torch.squeeze(self.id_encoder(generated_images))
             # id_loss_val = self.config['lambdaID'] * id_loss(real_id_vec, pred_id_embedding)
-            id_loss_val = self.config['lambdaID'] * self.id_loss_net(generated_images, id_images)
+            id_loss_val = self.config['lambdaID'] * self.id_encoder(generated_images, id_images)
             total_loss += id_loss_val
             wandb.log({'id_loss_val': id_loss_val.detach().cpu()}, step=Global_Config.step)
 

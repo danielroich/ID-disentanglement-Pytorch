@@ -18,7 +18,7 @@ config = {
     'beta2': 0.999,
     'adverserial_D': 2e-5,
     'adverserial_M': 7e-6,
-    'non_adverserial_lr': 3e-4,
+    'non_adverserial_lr': 6e-5,
     'lrAttr': 0.0001,
     'IdDiffersAttrTrainRatio': 3,  # 1/3
     'batchSize': 8,
@@ -26,12 +26,12 @@ config = {
     'lambdaID': 1,
     'lambdaL2': 1,
     'lambdaLND': 1,
-    'lambdaREC': 2,
-    'lambdaVGG': 3,
+    'lambdaREC': 1,
+    'lambdaVGG': 1,
     'a': 0.84,
     'use_reconstruction': True,
-    'use_id': False,
-    'use_landmark': False,
+    'use_id': True,
+    'use_landmark': True,
     'use_adverserial': False,
     'train_precentege': 0.95,
     'epochs': 40,
@@ -216,7 +216,7 @@ optimizer_non_adv_M = torch.optim.Adam(list(mlp.parameters()) + list(attr_encode
 
 
 trainer = Trainer(config, optimizer_D, optimizer_adv_M, optimizer_non_adv_M, discriminator, generator,
-                  id_encoder, attr_encoder, landmark_encoder, E_ID_LOSS_PATH)
+                  id_encoder, attr_encoder, landmark_encoder)
 
 # In[22]:
 
@@ -300,7 +300,7 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
                 use_rec_extra_term = idx % config['IdDiffersAttrTrainRatio'] != 0
 
             total_error = trainer.non_adversarial_train_step(
-                id_vec, attr_images, fake_data, real_landmarks, use_rec_extra_term)
+                id_images, attr_images, fake_data, real_landmarks, use_rec_extra_term)
             wandb.log({'total error': total_error.detach().cpu()}, step=Global_Config.step)
 
             pbar.update(1)
