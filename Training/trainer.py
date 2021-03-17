@@ -97,7 +97,7 @@ class Trainer:
         if self.config['use_id']:
             # pred_id_embedding = torch.squeeze(self.id_encoder(generated_images))
             # id_loss_val = self.config['lambdaID'] * id_loss(real_id_vec, pred_id_embedding)
-            id_loss_val = self.config['lambdaID'] * self.id_encoder(generated_images, id_images)
+            id_loss_val = self.config['lambdaID'] * self.id_encoder(generated_images, (id_images * 2) - 1)
             total_loss += id_loss_val
             wandb.log({'id_loss_val': id_loss_val.detach().cpu()}, step=Global_Config.step)
 
@@ -122,7 +122,8 @@ class Trainer:
         # 0 to 1 and then normalize according to official site
         # or -1 and 1 according to lpips
         if use_rec_extra_term and (not self.config['use_adverserial']):
-            vgg_loss_val = torch.mean(self.config['lambdaVGG'] * self.lpips_loss(generated_images, (attr_images * 2) - 1))
+            vgg_loss_val = torch.mean(
+                self.config['lambdaVGG'] * self.lpips_loss(generated_images, (attr_images * 2) - 1))
             wandb.log({'vgg_loss_val': vgg_loss_val.detach().cpu()}, step=Global_Config.step)
             total_loss += vgg_loss_val
             # vgg_loss_val = self.config['lambdaVGG'] * self.vgg_loss(self.vgg_normalize(attr_images),

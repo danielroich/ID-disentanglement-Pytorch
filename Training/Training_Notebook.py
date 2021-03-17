@@ -26,7 +26,7 @@ config = {
     'lambdaID': 1,
     'lambdaL2': 1,
     'lambdaLND': 1,
-    'lambdaREC': 1,
+    'lambdaREC': 0.1,
     'lambdaVGG': 1,
     'a': 0.84,
     'use_reconstruction': True,
@@ -35,7 +35,7 @@ config = {
     'use_adverserial': False,
     'train_precentege': 0.95,
     'epochs': 40,
-    'use_cycle': False,
+    'use_cycle': True,
     'use_l2': True
 }
 GENERATOR_IMAGE_SIZE = 256
@@ -282,7 +282,7 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
 
             try:
                 with torch.no_grad():
-                    id_vec = torch.squeeze(id_encoder.extract_feats(id_images))
+                    id_vec = torch.squeeze(id_encoder.extract_feats((id_images * 2) - 1))
                     real_landmarks, real_landmarks_nojawline = landmark_encoder(attr_images)
             except Exception as e:
                 print(e)
@@ -305,7 +305,7 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
 
             pbar.update(1)
 
-            if idx % 80 == 0 and idx != 0:
+            if idx % 100 == 0 and idx != 0:
                 with torch.no_grad():
                     concat_vec = get_concat_vec(test_id_images, test_attr_images, id_encoder, attr_encoder)
                     if config['use_cycle']:
@@ -327,10 +327,10 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
                                         wandb.Image(cycled_generated_image * 255,
                                                     caption=f"Cycle_Train_ID_Image{idx}")]}, step=Global_Config.step)
 
-            if idx % 600 == 0 and idx != 0:
+            if idx % 700 == 0 and idx != 0:
                 torch.save(mlp, f'{MODELS_DIR}maper_{idx}_{time.time()}_{int(total_error)}.pt')
                 torch.save(attr_encoder, f'{MODELS_DIR}attr_encoder_{idx}_{time.time()}_{int(total_error)}.pt')
-                torch.save(discriminator, f'{MODELS_DIR}discriminator_{idx}_{time.time()}_{int(total_error)}.pt')
+                # torch.save(discriminator, f'{MODELS_DIR}discriminator_{idx}_{time.time()}_{int(total_error)}.pt')
 
 # In[ ]:
 
