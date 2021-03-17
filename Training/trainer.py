@@ -75,10 +75,14 @@ class Trainer:
         self.generator.zero_grad()
         self.vgg_loss.zero_grad()
 
-        rec_loss_val = torch.tensor(0)
-        id_loss_val = torch.tensor(0)
-        landmark_loss_val = torch.tensor(0)
-        vgg_loss_val = torch.tensor(0)
+        rec_loss_val = torch.tensor(0, dtype=torch.float)
+        rec_loss_val.requires_grad = True
+        id_loss_val = torch.tensor(0, dtype=torch.float)
+        id_loss_val.requires_grad = True
+        landmark_loss_val = torch.tensor(0, dtype=torch.float)
+        landmark_loss_val.requires_grad = True
+        vgg_loss_val = torch.tensor(0, dtype=torch.float)
+        vgg_loss_val.requires_grad = True
 
         generated_images, _ = self.generator(
             [fake_data], input_is_latent=True, return_latents=False
@@ -102,7 +106,7 @@ class Trainer:
                                                                self.config['a'])
 
         # 0 to 1 and then normalize according to official site
-        if not self.config['use_adverserial']:
+        if use_rec_extra_term and (not self.config['use_adverserial']):
             vgg_loss_val = self.config['lambdaVGG'] * self.vgg_loss(self.vgg_normalize(attr_images),
                                                                     self.vgg_normalize(normalized_generated_images))
 
