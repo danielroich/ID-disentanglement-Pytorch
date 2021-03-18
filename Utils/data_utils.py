@@ -5,7 +5,7 @@ import numpy as np
 from torch.utils.data import Dataset
 from PIL import Image
 from torchvision import transforms
-import Global_Config
+from Configs import Global_Config
 
 to_tensor_transform = transforms.ToTensor()
 

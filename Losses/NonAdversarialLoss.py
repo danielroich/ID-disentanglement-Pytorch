@@ -2,7 +2,7 @@ from pytorch_msssim import ms_ssim
 import torch
 from torch import nn
 from Models.VGG19 import VGG19
-import Global_Config
+from Configs import Global_Config
 
 l1_criterion = torch.nn.L1Loss(reduction='mean')
 l2_criterion = torch.nn.MSELoss(reduction='mean')

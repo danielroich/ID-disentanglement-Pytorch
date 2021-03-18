@@ -1,10 +1,7 @@
-import torch.nn as nn
-import math
 import torch
-import pickle
 from facenet_pytorch import MTCNN, InceptionResnetV1
 from torchvision import transforms
-import Global_Config
+from Configs import Global_Config
 
 IMAGE_SIZE = 220
 mtcnn = MTCNN(

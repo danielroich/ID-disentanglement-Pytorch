@@ -1,61 +1,15 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# # clone + import + drive + paths
-# 
-
-# In[1]:
-
-
 import os
-import Global_Config
-
-# In[2]:
-
-
-config = {
-    'beta1': 0.9,
-    'beta2': 0.999,
-    'adverserial_D': 2e-5,
-    'adverserial_M': 7e-6,
-    'non_adverserial_lr': 6e-5,
-    'lrAttr': 0.0001,
-    'IdDiffersAttrTrainRatio': 3,  # 1/3
-    'batchSize': 8,
-    'R1Param': 14,
-    'lambdaID': 1,
-    'lambdaL2': 1,
-    'lambdaLND': 1,
-    'lambdaREC': 0.1,
-    'lambdaVGG': 1,
-    'a': 0.84,
-    'use_reconstruction': True,
-    'use_id': True,
-    'use_landmark': True,
-    'use_adverserial': False,
-    'train_precentege': 0.95,
-    'epochs': 40,
-    'use_cycle': True,
-    'use_l2': True
-}
-GENERATOR_IMAGE_SIZE = 256
+from Configs import Global_Config
+from Configs.training_config import config, GENERATOR_IMAGE_SIZE
 
 
-# In[3]:
-
-
-def get_base_path(run_in_colab):
+def get_base_path():
     if Global_Config.run_in_slurm:
         return '/home/joberant/nlp_fall_2021/danielroich/disantalgement/Data/'
-    if run_in_colab:
-        return '/content/drive/MyDrive/CNN-project-weights/'
     return '/disk2/danielroich/yotam_disentanglement/Data/'
 
 
-# In[4]:
-
-
-BASE_PATH = get_base_path(Global_Config.run_in_colab)
+BASE_PATH = get_base_path()
 
 MOBILE_FACE_NET_WEIGHTS_PATH = BASE_PATH + 'mobilefacenet_model_best.pth.tar'
 GENERATOR_WEIGHTS_PATH = BASE_PATH + '550000.pt'
@@ -68,9 +22,6 @@ W_DATA_DIR = BASE_PATH + 'fake/small_w/'
 MODELS_DIR = BASE_PATH + 'Models/'
 
 
-# In[5]:
-
-
 def prepeare_env_for_local_use():
     CUDA_VISIBLE_DEVICES = '4'
     os.chdir('..')
@@ -78,32 +29,10 @@ def prepeare_env_for_local_use():
     os.environ['CUDA_VISIBLE_DEVICES'] = CUDA_VISIBLE_DEVICES
 
 
-# In[6]:
-
-
-def prepeare_env_for_colab():
-    from google.colab import drive
-    drive.mount('/content/drive')
-    os.chdir('/content')
-    get_ipython().system('pip install pytorch-msssim')
-    get_ipython().system(
-        "git clone https://github.com/danielroich/Face-Identity-Disentanglement-via-StyleGan2.git 'project'")
-    CODE_DIR = 'project'
-    os.chdir(f'./{CODE_DIR}')
-
-
-# In[7]:
-
-
-if Global_Config.run_in_colab:
-    prepeare_env_for_colab()
-elif Global_Config.run_in_slurm:
+if Global_Config.run_in_slurm:
     os.chdir('..')
 else:
     prepeare_env_for_local_use()
-
-# In[8]:
-
 
 import wandb
 from Training.trainer import Trainer
@@ -114,47 +43,29 @@ from Models.Encoders.Inception import Inception
 from Models.Discrimanator import Discriminator
 from Models.LatentMapper import LatentMapper
 from Models.StyleGan2.model import Generator
-from Utils.data_utils import get_w_image, plot_single_w_image, Image_W_Dataset, cycle_images_to_create_diff_order
+from Utils.data_utils import get_w_image, Image_W_Dataset, cycle_images_to_create_diff_order
 import time
 import torch
 import torch.utils.data
-import torchvision.transforms as transforms
 from tqdm import tqdm
 from Losses import id_loss
-import numpy as np
-import matplotlib.pyplot as plt
 
-# # network + data
-# 
-
-# In[9]:
-
-
-id_encoder = ID_Encoder()
+id_encoder = id_loss.IDLoss(E_ID_LOSS_PATH)
 attr_encoder = Inception()
 discriminator = Discriminator()
 mlp = LatentMapper()
 landmark_encoder = Landmark_Encoder.Encoder_Landmarks(MOBILE_FACE_NET_WEIGHTS_PATH)
 generator = Generator(GENERATOR_IMAGE_SIZE, 512, 8)
 
-# In[10]:
-
 state_dict = torch.load(GENERATOR_WEIGHTS_PATH)
 generator.load_state_dict(state_dict['g_ema'], strict=False)
 
-# In[12]:
-
-
-# id_encoder = id_encoder.to(Global_Config.device)
-id_encoder = id_loss.IDLoss(E_ID_LOSS_PATH).to(Global_Config.device)
+id_encoder = id_encoder.to(Global_Config.device)
 attr_encoder = attr_encoder.to(Global_Config.device)
 discriminator = discriminator.to(Global_Config.device)
 mlp = mlp.to(Global_Config.device)
 generator = generator.to(Global_Config.device)
 landmark_encoder = landmark_encoder.to(Global_Config.device)
-
-# In[13]:
-
 
 id_encoder = id_encoder.eval()
 attr_encoder = attr_encoder.train()
@@ -164,15 +75,9 @@ mlp = mlp.train()
 landmark_encoder = landmark_encoder.eval()
 
 
-# In[14]:
-
-
 def toggle_grad(model, requires_grad):
     for p in model.parameters():
         p.requires_grad_(requires_grad)
-
-
-# In[15]:
 
 
 toggle_grad(id_encoder, True)
@@ -181,29 +86,14 @@ toggle_grad(generator, True)
 toggle_grad(mlp, True)
 toggle_grad(landmark_encoder, True)
 
-# In[17]:
-
-
 w_image_dataset = Image_W_Dataset(W_DATA_DIR, IMAGE_DATA_DIR)
 
-# In[18]:
-
-
-# train_size = int(config['train_precentege'] * len(w_image_dataset))
-train_size = 65000
+train_size = int(config['train_precentege'] * len(w_image_dataset))
 test_size = len(w_image_dataset) - train_size
 train_data, test_data = random_split(w_image_dataset, [train_size, test_size])
 
-# In[19]:
-
-
 train_loader = DataLoader(dataset=train_data, batch_size=config['batchSize'], shuffle=False)
 test_loader = DataLoader(dataset=test_data, batch_size=config['batchSize'], shuffle=False)
-
-# # Training
-
-# In[20]:
-
 
 optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=config['adverserial_D'],
                                betas=(config['beta1'], config['beta2']))
@@ -212,19 +102,11 @@ optimizer_adv_M = torch.optim.Adam(mlp.parameters(), lr=config['adverserial_M'],
 optimizer_non_adv_M = torch.optim.Adam(list(mlp.parameters()) + list(attr_encoder.parameters()),
                                        lr=config['non_adverserial_lr'], betas=(config['beta1'], config['beta2']))
 
-# In[21]:
-
-
 trainer = Trainer(config, optimizer_D, optimizer_adv_M, optimizer_non_adv_M, discriminator, generator,
                   id_encoder, attr_encoder, landmark_encoder)
 
-# In[22]:
-
 
 run = wandb.init(project="yotam_disantalgement", reinit=True, config=config)
-
-
-# In[23]:
 
 
 def get_concat_vec(id_images, attr_images, id_encoder, attr_encoder):
@@ -233,9 +115,6 @@ def get_concat_vec(id_images, attr_images, id_encoder, attr_encoder):
         attr_vec = torch.squeeze(attr_encoder(attr_images))
         test_vec = torch.cat((id_vec, attr_vec), dim=1)
         return test_vec
-
-
-# In[25]:
 
 data = next(iter(test_loader))
 ws, images = data
@@ -250,21 +129,6 @@ with torch.no_grad():
     for idx in range(len(test_ws)):
         w_image = get_w_image(test_ws[idx], generator)
         wandb.log({f"Test_ID_Image{idx}": [wandb.Image(w_image * 255, caption=f"Test_ID_Image{idx}")]}, step=0)
-
-
-# ## Global Training
-
-# In[26]:
-
-
-def mean(tensors_list):
-    if len(tensors_list) == 0:
-        return 0
-    return sum(tensors_list) / len(tensors_list)
-
-
-# In[ ]:
-
 
 use_descrimantive_loss = config['use_adverserial']
 with tqdm(total=config['epochs'] * len(train_loader)) as pbar:

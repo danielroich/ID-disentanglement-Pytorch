@@ -5,3 +5,4 @@ run_in_notebook = False
 run_in_slurm = True
 device = torch.device('cuda:0')
 step = 0
+

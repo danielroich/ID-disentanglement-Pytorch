@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 from torch import autograd
-import Global_Config
+from Configs import Global_Config
+
 
 def calc_Dw_loss(probs: torch.Tensor, label: int):
     labels = torch.full((probs.size(0),), label, dtype=torch.float, device=Global_Config.device)

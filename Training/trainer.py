@@ -2,9 +2,8 @@ from torchvision import transforms
 
 from Losses.AdversarialLoss import calc_Dw_loss, R1_regulazation
 import torch
-from Losses.NonAdversarialLoss import id_loss, landmark_loss, rec_loss, VGGLoss, l2_loss
-import Global_Config
-from Losses import id_loss
+from Losses.NonAdversarialLoss import landmark_loss, rec_loss, VGGLoss, l2_loss
+from Configs import Global_Config
 import lpips
 import wandb
 
