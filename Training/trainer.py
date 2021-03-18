@@ -113,7 +113,7 @@ class Trainer:
             total_loss += rec_loss_val
             wandb.log({'rec_loss_val': rec_loss_val.detach().cpu()}, step=Global_Config.step)
 
-        if self.config['use_l2'] > 0:
+        if use_rec_extra_term and self.config['use_l2'] > 0:
             l2_loss_val = self.config['lambdaL2'] * l2_loss(attr_images, normalized_generated_images)
             total_loss += l2_loss_val
             wandb.log({'l2_loss_val': l2_loss_val.detach().cpu()}, step=Global_Config.step)
