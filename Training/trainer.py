@@ -2,7 +2,7 @@ from torchvision import transforms
 
 from Losses.AdversarialLoss import calc_Dw_loss, R1_regulazation
 import torch
-from Losses.NonAdversarialLoss import landmark_loss, rec_loss, VGGLoss, l2_loss
+from Losses.NonAdversarialLoss import landmark_loss, rec_loss, l2_loss
 from Configs import Global_Config
 import lpips
 import wandb
@@ -31,9 +31,6 @@ class Trainer:
         self.attr_encoder = attr_encoder
         self.landmark_encoder = landmark_encoder
         self.lpips_loss = lpips.LPIPS(net='alex').to(Global_Config.device).eval()
-        self.vgg_loss = VGGLoss().to(Global_Config.device)
-        self.vgg_normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                                  std=[0.229, 0.224, 0.225])
 
     def train_discriminator(self, real_w, generated_w):
         self.discriminator_optimizer.zero_grad()
@@ -72,16 +69,10 @@ class Trainer:
         return error_real, error_fake, torch.mean(prediction_real), torch.mean(prediction_fake), g_error, torch.mean(
             g_pred)
 
-    # def mean(self, tensors_list):
-    #     if len(tensors_list) == 0:
-    #         return 0
-    #     return sum(tensors_list) / len(tensors_list)
-
     def non_adversarial_train_step(self, id_images, attr_images, fake_data, real_landmarks, use_rec_extra_term):
         self.id_encoder.zero_grad()
         self.landmark_encoder.zero_grad()
         self.generator.zero_grad()
-        self.vgg_loss.zero_grad()
 
         total_loss = torch.tensor(0, dtype=torch.float, device=Global_Config.device)
 
