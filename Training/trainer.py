@@ -88,14 +88,11 @@ class Trainer:
         generated_images, _ = self.generator(
             [fake_data], input_is_latent=True, return_latents=False
         )
-        ## TODO: Check for each net the image scale
-        ## TODO: Pip install lpips
+
         normalized_generated_images = (generated_images + 1) / 2
 
         ## -1 to 1
         if self.config['use_id']:
-            # pred_id_embedding = torch.squeeze(self.id_encoder(generated_images))
-            # id_loss_val = self.config['lambdaID'] * id_loss(real_id_vec, pred_id_embedding)
             id_loss_val = self.config['lambdaID'] * self.id_encoder(generated_images, (id_images * 2) - 1)
             total_loss += id_loss_val
             wandb.log({'id_loss_val': id_loss_val.detach().cpu()}, step=Global_Config.step)
@@ -118,15 +115,12 @@ class Trainer:
             total_loss += l2_loss_val
             wandb.log({'l2_loss_val': l2_loss_val.detach().cpu()}, step=Global_Config.step)
 
-        # 0 to 1 and then normalize according to official site
-        # or -1 and 1 according to lpips
+        ## -1 to 1
         if use_rec_extra_term and (not self.config['use_adverserial']):
             vgg_loss_val = torch.mean(
                 self.config['lambdaVGG'] * self.lpips_loss(generated_images, (attr_images * 2) - 1))
             wandb.log({'vgg_loss_val': vgg_loss_val.detach().cpu()}, step=Global_Config.step)
             total_loss += vgg_loss_val
-            # vgg_loss_val = self.config['lambdaVGG'] * self.vgg_loss(self.vgg_normalize(attr_images),
-            #                                                         self.vgg_normalize(normalized_generated_images))
 
         self.non_adversarial_mapper_optimizer.zero_grad()
         total_loss.backward()

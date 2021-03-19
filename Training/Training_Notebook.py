@@ -49,6 +49,8 @@ import torch
 import torch.utils.data
 from tqdm import tqdm
 from Losses import id_loss
+from random import choice
+from string import ascii_uppercase
 
 id_encoder = id_loss.IDLoss(E_ID_LOSS_PATH)
 attr_encoder = Inception()
@@ -105,8 +107,8 @@ optimizer_non_adv_M = torch.optim.Adam(list(mlp.parameters()) + list(attr_encode
 trainer = Trainer(config, optimizer_D, optimizer_adv_M, optimizer_non_adv_M, discriminator, generator,
                   id_encoder, attr_encoder, landmark_encoder)
 
-
-run = wandb.init(project="yotam_disantalgement", reinit=True, config=config)
+run_name = ''.join(choice(ascii_uppercase) for i in range(12))
+run = wandb.init(project="yotam_disantalgement", reinit=True, config=config, name=run_name)
 
 
 def get_concat_vec(id_images, attr_images, id_encoder, attr_encoder):
@@ -115,6 +117,7 @@ def get_concat_vec(id_images, attr_images, id_encoder, attr_encoder):
         attr_vec = torch.squeeze(attr_encoder(attr_images))
         test_vec = torch.cat((id_vec, attr_vec), dim=1)
         return test_vec
+
 
 data = next(iter(test_loader))
 ws, images = data
@@ -192,8 +195,8 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
                                                     caption=f"Cycle_Train_ID_Image{idx}")]}, step=Global_Config.step)
 
             if idx % 10000 == 0 and idx != 0:
-                torch.save(mlp, f'{MODELS_DIR}maper_{idx}_{time.time()}_{int(total_error)}.pt')
-                torch.save(attr_encoder, f'{MODELS_DIR}attr_encoder_{idx}_{time.time()}_{int(total_error)}.pt')
+                torch.save(mlp, f'{MODELS_DIR}maper_{run_name}_{time.time()}_{int(total_error)}.pt')
+                torch.save(attr_encoder, f'{MODELS_DIR}attr_encoder_{run_name}_{time.time()}_{int(total_error)}.pt')
 
 # In[ ]:
 
