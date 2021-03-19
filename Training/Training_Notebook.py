@@ -194,7 +194,7 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
                                         wandb.Image(cycled_generated_image * 255,
                                                     caption=f"Cycle_Train_ID_Image{idx}")]}, step=Global_Config.step)
 
-            if idx % 10000 == 0 and idx != 0:
+            if (idx % 2) == 0:
                 torch.save(mlp, f'{MODELS_DIR}maper_{run_name}_{time.time()}_{int(total_error)}.pt')
                 torch.save(attr_encoder, f'{MODELS_DIR}attr_encoder_{run_name}_{time.time()}_{int(total_error)}.pt')
 
