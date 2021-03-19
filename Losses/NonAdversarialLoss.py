@@ -1,7 +1,6 @@
 from pytorch_msssim import ms_ssim
 import torch
 from torch import nn
-from Models.VGG19 import VGG19
 from Configs import Global_Config
 
 l1_criterion = torch.nn.L1Loss(reduction='mean')
@@ -28,20 +27,20 @@ def l2_loss(attr_images, generated_images):
     return loss
 
 
-# Perceptual loss that uses a pretrained VGG network
-class VGGLoss(nn.Module):
-    def __init__(self):
-        super(VGGLoss, self).__init__()
-        self.vgg = VGG19().to(Global_Config.device)
-        self.criterion = nn.L1Loss()
-        self.weights = [1.0 / 32, 1.0 / 16, 1.0 / 8, 1.0 / 4, 1.0]
-
-    def forward(self, x, y):
-        x_vgg, y_vgg = self.vgg(x), self.vgg(y)
-        loss = 0
-        for i in range(len(x_vgg)):
-            loss += self.weights[i] * self.criterion(x_vgg[i], y_vgg[i].detach())
-        return loss
+# # Perceptual loss that uses a pretrained VGG network
+# class VGGLoss(nn.Module):
+#     def __init__(self):
+#         super(VGGLoss, self).__init__()
+#         self.vgg = VGG19().to(Global_Config.device)
+#         self.criterion = nn.L1Loss()
+#         self.weights = [1.0 / 32, 1.0 / 16, 1.0 / 8, 1.0 / 4, 1.0]
+#
+#     def forward(self, x, y):
+#         x_vgg, y_vgg = self.vgg(x), self.vgg(y)
+#         loss = 0
+#         for i in range(len(x_vgg)):
+#             loss += self.weights[i] * self.criterion(x_vgg[i], y_vgg[i].detach())
+#         return loss
 
 # def discriminator_loss(real_pred, fake_pred):
 #     real_loss = F.softplus(-real_pred).mean()
