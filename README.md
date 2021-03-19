@@ -25,6 +25,10 @@ Our generated dataset attached at this [Drive folder](https://drive.google.com/d
 
 To train the model run **Training_Notebook.py**, you can change parameters in **Configs/** folder.
 
+## Inference
+
+
+
 ## Results
 
 
