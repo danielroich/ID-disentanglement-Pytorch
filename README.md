@@ -35,3 +35,4 @@ Our pretrained checkpoint attached at this [Drive folder](https://drive.google.c
 
 ## Results
 
+![Results](https://github.com/danielroich/ID-disentanglement-Pytorch/blob/master/Results.jpg)
