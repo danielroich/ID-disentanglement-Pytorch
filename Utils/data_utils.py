@@ -9,6 +9,7 @@ from Configs import Global_Config
 
 to_tensor_transform = transforms.ToTensor()
 
+
 def plot_single_w_image(w, generator):
     w = w.unsqueeze(0).to(Global_Config.device)
     sample, latents = generator(
@@ -51,35 +52,6 @@ def get_data_by_index(idx, root_dir, postfix):
     return data
 
 
-class WDataSet(Dataset):
-    def __init__(self, root_dir):
-        """
-        Args:
-            root_dir (string): Directory with all the w's.
-        """
-        self.root_dir = root_dir
-
-    def __len__(self):
-        num_of_files = 0
-        for base, dirs, files in os.walk(self.root_dir):
-            num_of_files += len(files)
-        return num_of_files
-
-    def __getitem__(self, idx):
-        return get_w_by_index(idx, self.root_dir)
-
-
-class ConcatDataset(Dataset):
-    def __init__(self, datasets):
-        self.datasets = datasets
-
-    def __getitem__(self, i):
-        return tuple(d[i] for d in self.datasets)
-
-    def __len__(self):
-        return min(len(d) for d in self.datasets)
-
-
 class Image_W_Dataset(Dataset):
     def __init__(self, w_dir, image_dir):
         self.w_dir = w_dir
@@ -94,16 +66,7 @@ class Image_W_Dataset(Dataset):
     def __getitem__(self, idx):
         w = get_data_by_index(idx, self.w_dir, ".npy")
         image = get_data_by_index(idx, self.image_dir, ".png")
-        return w,image
-
-
-def make_concat_loaders(batch_size, datasets):
-    full_dataset = ConcatDataset(datasets)
-
-    train_loader = torch.utils.data.DataLoader(dataset=full_dataset,
-                                               batch_size=batch_size, shuffle=True)
-
-    return train_loader
+        return w, image
 
 
 def cycle_images_to_create_diff_order(images):
