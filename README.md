@@ -19,9 +19,9 @@ You can also find at the above link our **environment.yml** file to create a rel
 
 ## Training
 
-The dataset is comprised of StyleGAN 2 generated images and W latent codes. see **data_creator.py**.
+The dataset is comprised of StyleGAN 2 generated images and W latent codes. see Utils/**data_creator.py**.
 
-Our generated dataset attached at this [Drive folder](https://drive.google.com/drive/folders/1SW7fE9KQV8XXYeluB3MavuAWlObwq65J?usp=sharing).
+Examples of our generated dataset attached at this [Drive folder](https://drive.google.com/drive/folders/1SW7fE9KQV8XXYeluB3MavuAWlObwq65J?usp=sharing).
 
 To train the model run **train_script.py**, you can change parameters in **Configs/** folder.
 
