@@ -27,11 +27,11 @@ To train the model run **train_script.py**, you can change parameters in **Confi
 
 ## Inference
 
+Try **Inference.ipynb** notebook to disentangle identity from attributes by yourself ;)
 
+## Checkpoints
+
+Our pretrained checkpoint attached at this [Drive folder](https://drive.google.com/drive/folders/1Z7BTqSrPi37I4mH6C7RCJNr2v6Zx69pB?usp=sharing).
 
 ## Results
 
-
-
-## Checkpoints
-Our pretrained checkpoint attached at this [Drive folder](https://drive.google.com/drive/folders/1Z7BTqSrPi37I4mH6C7RCJNr2v6Zx69pB?usp=sharing).
