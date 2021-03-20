@@ -90,7 +90,7 @@ class Trainer:
 
         if self.config['use_landmark']:
             generated_landmarks, generated_landmarks_nojawline = self.landmark_encoder(normalized_generated_images)
-            landmark_loss_val = landmark_loss(generated_landmarks, real_landmarks) * self.config['lambdaLND']
+            landmark_loss_val = landmark_loss(generated_landmarks_nojawline, real_landmarks) * self.config['lambdaLND']
             total_loss += landmark_loss_val
             wandb.log({'landmark_loss_val': landmark_loss_val.detach().cpu()}, step=Global_Config.step)
 

@@ -163,7 +163,7 @@ with tqdm(total=config['epochs'] * len(train_loader)) as pbar:
                     adversarial_train_step(ws, fake_data)
             else:
                 total_error = trainer.non_adversarial_train_step(
-                    id_images, attr_images, fake_data, real_landmarks, use_rec_extra_term)
+                    id_images, attr_images, fake_data, real_landmarks_nojawline, use_rec_extra_term)
                 wandb.log({'total error': total_error.detach().cpu()}, step=Global_Config.step)
 
             pbar.update(1)

@@ -11,7 +11,7 @@ config = {
     'lambdaID': 1,
     'lambdaL2': 1,
     'lambdaLND': 1,
-    'lambdaREC': 0.1,
+    'lambdaREC': 0.01,
     'lambdaVGG': 1,
     'a': 0.84,
     'use_reconstruction': True,
