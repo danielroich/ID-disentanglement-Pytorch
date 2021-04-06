@@ -5,6 +5,19 @@
 Pytorch implementation of the paper *Face Identity Disentanglement via Latent Space Mapping* for both training and evaluation, with StyleGAN 2.
 - Paper: https://arxiv.org/abs/2005.07728
 - Official TensorFlow Implementation: https://github.com/YotamNitzan/ID-disentanglement
+- Important: this implementation does not follow the exact same architecture of the original paper. See changes below
+
+## Changes from original paper
+- instead of using a Discriminator loss for the mapper. We have used several other losses such as:
+    - LPIPS Loss (The Unreasonable Effectiveness of Deep Features as a Perceptual Metric, Zhang el al, 2018)
+    - MSE Loss
+    - Different ID Loss
+    - Different landmark detector
+- The reason for those changes resides in the fact that the training procedure with Discriminator is often
+hard and does not converge. We have found that replacing the Discriminator with LPIPS and MSE losses
+  we can achieve the same result. Nevertheless, our code supports training with a discriminator which can be
+  activated using the configuration.
+- The other changes are due to better Recognition models that have developed since the original paper was published
 
 ## Setup
 
@@ -27,7 +40,7 @@ To train the model run **train_script.py**, you can change parameters in **Confi
 
 ## Inference
 
-Try **Inference.ipynb** notebook to disentangle identity from attributes by yourself ;)
+Try **Inference.ipynb** notebook to disentangle identity from attributes by yourself
 
 ## Checkpoints
 
